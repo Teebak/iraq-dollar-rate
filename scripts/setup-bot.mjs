@@ -36,7 +36,7 @@ async function main() {
   await tg(token, 'setWebhook', {
     url: `${APP_ORIGIN}/telegram/webhook`,
     secret_token: await webhookSecret(token),
-    allowed_updates: ['message', 'callback_query'],
+    allowed_updates: ['message', 'callback_query', 'inline_query'],
     drop_pending_updates: true,
   });
   console.log('✓ Webhook set');
@@ -58,6 +58,7 @@ async function main() {
   console.log('✓ Menu button, descriptions and commands set');
 
   console.log(`\nDone. Open https://t.me/${me.username} and press Start.`);
+  console.log('For sharing from any chat, also send /setinline to @BotFather once (placeholder: اكتب مبلغًا أو اختر مدينة).');
 }
 
 async function tg(token, method, body) {

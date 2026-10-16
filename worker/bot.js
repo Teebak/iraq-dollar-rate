@@ -4,6 +4,7 @@
 import { cityLines, fmt, getRates, todayInBaghdad } from './rates.js';
 import { isGone, openAppKeyboard, tg } from './telegram.js';
 import { yesterdaySell } from './history.js';
+import { handleInlineQuery } from './inline.js';
 
 const MAX_ALERTS = 5;
 /** Accept targets in this band (IQD per $1); a value above it is read as "per $100". */
@@ -20,6 +21,7 @@ const HELP = [
 
 export async function handleUpdate(update, env) {
   if (update.callback_query) return handleCallback(update.callback_query, env);
+  if (update.inline_query) return handleInlineQuery(update.inline_query, env);
 
   const message = update.message;
   if (!message?.text || message.chat?.type !== 'private') return;
