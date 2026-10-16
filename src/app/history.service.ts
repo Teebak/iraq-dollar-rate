@@ -1,66 +1,51 @@
-import { Injectable, effect, inject, signal } from '@angular/core';
-import { RatesService } from './rates.service';
+import { Injectable, inject, signal } from '@angular/core';
+import { HttpClient } from '@angular/common/http';
+import { takeUntilDestroyed, toObservable } from '@angular/core/rxjs-interop';
+import { catchError, combineLatest, of, switchMap, timer } from 'rxjs';
 
 export interface PricePoint {
-  /** Epoch ms when this app observed the price. */
+  /** Epoch ms when the price was recorded. */
   t: number;
   sell: number;
   buy: number;
 }
 
-type History = Record<string, PricePoint[]>;
+export type RangeDays = 1 | 7 | 30;
 
-const STORAGE_KEY = 'rates-history-v1';
-const MAX_POINTS = 120;
-/** Re-record an unchanged price after this long so the chart's time axis keeps moving. */
-const HEARTBEAT_MS = 30 * 60_000;
+export interface History {
+  market: string;
+  days: RangeDays;
+  /** Start of the requested window (epoch ms). */
+  from: number;
+  /** When recording began for this market, or null if nothing is recorded yet. */
+  since: number | null;
+  points: PricePoint[];
+}
+
+/** Served by the Cloudflare Worker (worker/history.js); proxied to the live Worker in dev by proxy.conf.json. */
+export const HISTORY_API_URL = '/api/history';
+const REFRESH_MS = 5 * 60_000;
 
 /**
- * The API has no history endpoint, so this records what the app itself observes,
- * on this device only. It is a personal log, not an official price history.
+ * Shared price history, recorded every 5 minutes on the server for everyone.
+ * Follows the selected market and range, and refreshes as new points are recorded.
  */
 @Injectable({ providedIn: 'root' })
 export class HistoryService {
-  private readonly rates = inject(RatesService);
-  readonly history = signal<History>(load());
+  private readonly http = inject(HttpClient);
+
+  readonly market = signal('b');
+  readonly range = signal<RangeDays>(1);
+  readonly history = signal<History | null>(null);
 
   constructor() {
-    effect(() => {
-      const markets = this.rates.markets();
-      const at = this.rates.lastUpdated()?.getTime();
-      if (!markets.length || !at) return;
-
-      const next: History = { ...this.history() };
-      let changed = false;
-      for (const m of markets) {
-        const points = next[m.key] ?? [];
-        const last = points.at(-1);
-        const moved = !last || last.sell !== m.sell || last.buy !== m.buy;
-        if (moved || at - last.t >= HEARTBEAT_MS) {
-          next[m.key] = [...points, { t: at, sell: m.sell, buy: m.buy }].slice(-MAX_POINTS);
-          changed = true;
-        }
-      }
-      if (!changed) return;
-      this.history.set(next);
-      save(next);
+    combineLatest([toObservable(this.market), toObservable(this.range), timer(0, REFRESH_MS)]).pipe(
+      switchMap(([market, days]) =>
+        this.http.get<History>(HISTORY_API_URL, { params: { market, days } }).pipe(catchError(() => of(null))),
+      ),
+      takeUntilDestroyed(),
+    ).subscribe(history => {
+      if (history) this.history.set(history);
     });
   }
-
-  pointsFor(key: string): PricePoint[] {
-    return this.history()[key] ?? [];
-  }
-}
-
-function load(): History {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    return raw ? (JSON.parse(raw) as History) : {};
-  } catch {
-    return {};
-  }
-}
-
-function save(history: History): void {
-  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(history)); } catch { /* storage unavailable */ }
 }

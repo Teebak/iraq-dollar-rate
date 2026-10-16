@@ -3,6 +3,7 @@
 
 import { cityLines, fmt, getRates, todayInBaghdad } from './rates.js';
 import { isGone, openAppKeyboard, tg } from './telegram.js';
+import { yesterdaySell } from './history.js';
 
 const MAX_ALERTS = 5;
 /** Accept targets in this band (IQD per $1); a value above it is read as "per $100". */
@@ -172,9 +173,8 @@ async function unsubscribe(env, chatId) {
 // ── Scheduled jobs ───────────────────────────────────────────
 
 /** Sends and deletes every alert whose target has been reached. */
-export async function checkAlerts(env) {
+export async function checkAlerts(env, rates) {
   await env.DB.prepare('DELETE FROM processed_updates WHERE created_at < ?').bind(Date.now() - 86_400_000).run();
-  const rates = await getRates();
   const sell = rates.b.sell;
   const { results } = await env.DB.prepare(
     `SELECT id, chat_id, direction, target FROM alerts
@@ -200,7 +200,8 @@ export async function checkAlerts(env) {
 /** Daily summary to every subscriber; drops users who blocked the bot. */
 export async function sendDailySummary(env) {
   const rates = await getRates();
-  const text = ['🗓 ملخص اليوم — ' + todayInBaghdad(), '', ...cityLines(rates), '', 'الأسعار بالدينار لكل 1 دولار.'].join('\n');
+  const yesterday = await yesterdaySell(env);
+  const text = ['🗓 ملخص اليوم — ' + todayInBaghdad(), '', ...cityLines(rates, yesterday), '', 'الأسعار بالدينار لكل 1 دولار.'].join('\n');
   const { results } = await env.DB.prepare('SELECT chat_id FROM subscribers').all();
 
   // Telegram allows ~30 messages/second; stay well under it.

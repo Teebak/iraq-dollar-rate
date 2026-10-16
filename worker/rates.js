@@ -32,10 +32,14 @@ export async function getRates() {
 
 export const fmt = n => Number(n).toLocaleString('en-US', { maximumFractionDigits: 2 });
 
-export function cityLines(rates) {
-  return CITIES.filter(([key]) => rates[key]).map(
-    ([key, name]) => `📍 ${name}: بيع ${fmt(rates[key].sell)} · شراء ${fmt(rates[key].buy)}`,
-  );
+/** One line per city. With `yesterday` (sell per market ~24 h ago), the sell price gets its change, e.g. (▲ 2.5). */
+export function cityLines(rates, yesterday = {}) {
+  return CITIES.filter(([key]) => rates[key]).map(([key, name]) => {
+    const { sell, buy } = rates[key];
+    const before = yesterday[key];
+    const delta = before == null ? '' : sell > before ? ` (▲ ${fmt(sell - before)})` : sell < before ? ` (▼ ${fmt(before - sell)})` : ' (ثابت)';
+    return `📍 ${name}: بيع ${fmt(sell)}${delta} · شراء ${fmt(buy)}`;
+  });
 }
 
 export function todayInBaghdad() {

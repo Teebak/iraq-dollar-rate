@@ -15,7 +15,7 @@ A Telegram Mini App that shows live buy/sell dollar prices for Baghdad, Erbil an
 ## Capabilities and Constraints
 - Data source: `https://iraqborsa.com/borsa-api/summary.php` (keys `b` Baghdad, `n` North → shown as Erbil, `s` South → shown as Basra). Provides current and previous sell/buy only; no history. The API sends no CORS headers, so it is reached via a proxy.
 - "Live" = polling every 15 s while visible.
-- Price trend is built client-side from observed changes and stored on the device; it is not official history and must not be presented as such.
+- Price history is recorded by the Worker's 5-minute cron into D1 (on change, at least hourly; kept 90 days) and shared by all users. It starts from when recording began, is not official history, and the app says when recording started.
 - Share rate to a Telegram chat via `t.me/share/url`.
 - Price alerts / push notifications are out of scope (would need a bot backend).
 - Arabic (RTL) is the default language; English is available.

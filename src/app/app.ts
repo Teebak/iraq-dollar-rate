@@ -5,7 +5,7 @@ import { DatePipe, DecimalPipe } from '@angular/common';
 import { TelegramService } from './telegram.service';
 import { Market, RatesService } from './rates.service';
 import { I18nService } from './i18n.service';
-import { HistoryService } from './history.service';
+import { HistoryService, RangeDays } from './history.service';
 import { CITIES, City, cityFor } from './cities';
 import { TickerComponent } from './ticker.component';
 import { TrendChartComponent } from './trend-chart.component';
@@ -31,7 +31,8 @@ export class App implements OnInit {
   protected readonly tg = inject(TelegramService);
   protected readonly rates = inject(RatesService);
   protected readonly i18n = inject(I18nService);
-  private readonly historySvc = inject(HistoryService);
+  protected readonly historySvc = inject(HistoryService);
+  protected readonly ranges: RangeDays[] = [1, 7, 30];
 
   protected readonly cities = CITIES;
   protected readonly cards = computed<CityCard[]>(() =>
@@ -66,9 +67,11 @@ export class App implements OnInit {
     return this.have() === 'usd' ? a * m.buy : a / m.sell;
   });
 
-  protected readonly trendPoints = computed(() => {
+  /** Shared history for the city on screen and the selected range (stale responses are ignored). */
+  protected readonly trend = computed(() => {
+    const h = this.historySvc.history();
     const key = this.active()?.market.key;
-    return key ? (this.historySvc.history()[key] ?? []) : [];
+    return h && h.market === key && h.days === this.historySvc.range() ? h : null;
   });
   /** Today's date in the UI language; re-evaluated on every poll so it rolls over at midnight. */
   protected readonly today = computed(() => {
@@ -77,11 +80,12 @@ export class App implements OnInit {
     return new Intl.DateTimeFormat(locale, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }).format(now);
   });
 
+  /** Set only while recording is younger than the selected range, so the chart doesn't look like a full week/month. */
   protected readonly trendSince = computed(() => {
-    const first = this.trendPoints()[0];
-    if (!first) return '';
+    const h = this.trend();
+    if (!h?.since || h.since <= h.from) return '';
     const locale = this.i18n.lang() === 'ar' ? 'ar-IQ-u-nu-latn' : 'en-GB';
-    return new Intl.DateTimeFormat(locale, { day: 'numeric', month: 'long' }).format(first.t);
+    return new Intl.DateTimeFormat(locale, { day: 'numeric', month: 'long', hour: 'numeric', minute: '2-digit' }).format(h.since);
   });
 
   protected readonly toast = signal<string | null>(null);
@@ -111,6 +115,12 @@ export class App implements OnInit {
       requestAnimationFrame(() =>
         this.cardEls()[index]?.nativeElement.scrollIntoView({ behavior: 'instant', inline: 'center', block: 'nearest' }),
       );
+    });
+
+    // Load shared history for whichever city is on screen.
+    effect(() => {
+      const key = this.active()?.market.key;
+      if (key) this.historySvc.market.set(key);
     });
 
     // Recompute parallax once cards exist.
@@ -159,6 +169,11 @@ export class App implements OnInit {
   protected refresh(): void {
     this.tg.haptic('light');
     this.rates.refresh();
+  }
+
+  protected setRange(days: RangeDays): void {
+    this.historySvc.range.set(days);
+    this.tg.selection();
   }
 
   protected toggleLang(): void {

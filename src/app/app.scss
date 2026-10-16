@@ -492,11 +492,39 @@ h1, h2, h3, p {
 
 // Trend
 .legend {
-  display: inline-flex;
+  display: flex;
   align-items: center;
   gap: 6px;
+  margin-top: 12px;
   font-size: 12px;
   color: var(--text-2);
+}
+
+// Small range switch in the trend panel header.
+.range {
+  display: flex;
+  gap: 2px;
+  padding: 3px;
+  border-radius: 10px;
+  background: rgb(0 0 0 / 28%);
+
+  button {
+    height: 28px;
+    padding: 0 10px;
+    border: 0;
+    border-radius: 7px;
+    background: transparent;
+    color: var(--text-2);
+    font-size: 12px;
+    cursor: pointer;
+    transition: background-color 0.3s var(--ease-out), color 0.3s var(--ease-out);
+
+    &.on {
+      background: var(--tint);
+      color: var(--ink);
+      font-weight: 600;
+    }
+  }
 }
 
 .sw {

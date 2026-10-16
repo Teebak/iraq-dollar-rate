@@ -3,5 +3,10 @@
     "target": "https://iraqborsa.com",
     "secure": true,
     "changeOrigin": true
+  },
+  "/api": {
+    "target": "https://iraq-dollar-rate.launchpad-apps.workers.dev",
+    "secure": true,
+    "changeOrigin": true
   }
 }

@@ -3,11 +3,13 @@
 // only requests that don't match a file reach fetch() below.
 //
 // /borsa-api/summary.php  proxies iraqborsa.com from the app's own origin (the API sends no CORS headers).
+// /api/history           shared price history for the app's chart (recorded by the cron, stored in D1).
 // /telegram/webhook       receives bot updates (set up with scripts/setup-bot.mjs). Needs the BOT_TOKEN secret.
 // scheduled()             checks price alerts every 5 minutes and sends the 10:00 daily summary (see wrangler.jsonc).
 
 import { webhookSecret } from './telegram-secret.js';
-import { fetchUpstream } from './rates.js';
+import { fetchUpstream, getRates } from './rates.js';
+import { RANGE_DAYS, getHistory, recordHistory } from './history.js';
 import { checkAlerts, handleUpdate, sendDailySummary } from './bot.js';
 
 const DAILY_CRON = '0 7 * * *';
@@ -16,16 +18,26 @@ export default {
   async fetch(request, env, ctx) {
     const { pathname } = new URL(request.url);
     if (pathname === '/borsa-api/summary.php') return proxyRates(request);
+    if (pathname === '/api/history') return historyApi(request, env);
     if (pathname === '/telegram/webhook') return handleTelegram(request, env, ctx);
     return env.ASSETS.fetch(request);
   },
 
   async scheduled(event, env, ctx) {
-    if (!env.BOT_TOKEN) return;
-    const job = event.cron === DAILY_CRON ? sendDailySummary(env) : checkAlerts(env);
-    ctx.waitUntil(job.catch(err => console.error(`cron ${event.cron} failed:`, err.message)));
+    ctx.waitUntil(runCron(event.cron, env).catch(err => console.error(`cron ${event.cron} failed:`, err.message)));
   },
 };
+
+async function runCron(cron, env) {
+  if (cron === DAILY_CRON) {
+    if (env.BOT_TOKEN) await sendDailySummary(env);
+    return;
+  }
+  // Every 5 minutes: record history (also without a bot), then fire any price alerts.
+  const rates = await getRates();
+  await recordHistory(env, rates);
+  if (env.BOT_TOKEN) await checkAlerts(env, rates);
+}
 
 // ── Rates proxy ──────────────────────────────────────────────
 
@@ -42,6 +54,23 @@ async function proxyRates(request) {
   } catch {
     return json({ error: 'upstream unreachable' }, 502);
   }
+}
+
+// ── History API ──────────────────────────────────────────────
+
+/** GET /api/history?market=b&days=7 → { market, days, from, since, points: [{ t, sell, buy }] } */
+async function historyApi(request, env) {
+  if (request.method !== 'GET') return new Response('Method not allowed', { status: 405, headers: { Allow: 'GET' } });
+  const params = new URL(request.url).searchParams;
+  const market = params.get('market') ?? 'b';
+  const days = Number(params.get('days') ?? 1);
+  if (!['b', 'n', 's'].includes(market) || !RANGE_DAYS.includes(days)) {
+    return json({ error: 'market must be b, n or s; days must be ' + RANGE_DAYS.join(', ') }, 400);
+  }
+  const body = await getHistory(env, market, days);
+  return new Response(JSON.stringify(body), {
+    headers: { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'public, max-age=60' },
+  });
 }
 
 // ── Telegram webhook ─────────────────────────────────────────

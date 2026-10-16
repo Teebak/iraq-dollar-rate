@@ -39,6 +39,8 @@ const PAD_BOTTOM = 14;
 })
 export class TrendChartComponent {
   readonly points = input.required<PricePoint[]>();
+  /** Left edge of the time axis (epoch ms); defaults to the first point. */
+  readonly from = input<number | null>(null);
   readonly highLabel = input('High');
   readonly lowLabel = input('Low');
   readonly ariaLabel = input('');
@@ -50,20 +52,21 @@ export class TrendChartComponent {
 
   protected readonly geometry = computed(() => {
     const pts = this.points();
-    if (pts.length < 2) return null;
+    if (!pts.length) return null;
 
-    const t0 = pts[0].t;
-    const t1 = Math.max(Date.now(), pts.at(-1)!.t + 1);
+    const t0 = this.from() ?? pts[0].t;
+    const t1 = Math.max(Date.now(), pts.at(-1)!.t + 1, t0 + 1);
     const values = pts.flatMap(p => [p.sell, p.buy]);
     let min = Math.min(...values);
     let max = Math.max(...values);
     if (min === max) { min -= 1; max += 1; }
 
-    const x = (t: number) => ((t - t0) / (t1 - t0)) * W;
+    // Clamped: the first point may sit before the window (it's the price going into it).
+    const x = (t: number) => Math.max(0, ((t - t0) / (t1 - t0)) * W);
     const y = (v: number) => PAD_TOP + (1 - (v - min) / (max - min)) * (H - PAD_TOP - PAD_BOTTOM);
 
     const step = (pick: (p: PricePoint) => number) => {
-      let d = `M0 ${y(pick(pts[0])).toFixed(1)}`;
+      let d = `M${x(pts[0].t).toFixed(1)} ${y(pick(pts[0])).toFixed(1)}`;
       for (let i = 1; i < pts.length; i++) {
         d += ` H${x(pts[i].t).toFixed(1)} V${y(pick(pts[i])).toFixed(1)}`;
       }
@@ -74,7 +77,7 @@ export class TrendChartComponent {
     return {
       sell,
       buy: step(p => p.buy),
-      sellArea: `${sell} V${H} H0 Z`,
+      sellArea: `${sell} V${H} H${x(pts[0].t).toFixed(1)} Z`,
       lastSellY: y(pts.at(-1)!.sell),
       min: Math.min(...values),
       max: Math.max(...values),

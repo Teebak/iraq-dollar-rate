@@ -132,17 +132,29 @@
       <section class="panel glass trend">
         <div class="panel-head">
           <h3>{{ t.trend }}</h3>
-          <span class="legend">
-            <i class="sw sell"></i>{{ t.sellTitle }}
-            <i class="sw buy"></i>{{ t.buyTitle }}
-          </span>
+          <div class="range" role="radiogroup" [attr.aria-label]="t.trend">
+            @for (d of ranges; track d) {
+              <button type="button" role="radio" [attr.aria-checked]="historySvc.range() === d"
+                      [class.on]="historySvc.range() === d" (click)="setRange(d)">{{ t.range(d) }}</button>
+            }
+          </div>
         </div>
-        @if (trendPoints().length > 1) {
-          <app-trend-chart [points]="trendPoints()" [highLabel]="t.high" [lowLabel]="t.low"
-                           [ariaLabel]="t.trend + ' — ' + activeName()" />
-          <p class="note">{{ t.trendSince(trendSince()) }}</p>
+        @if (trend(); as h) {
+          @if (h.points.length) {
+            <app-trend-chart [points]="h.points" [from]="h.from" [highLabel]="t.high" [lowLabel]="t.low"
+                             [ariaLabel]="t.trend + ' — ' + activeName()" />
+            <p class="legend">
+              <i class="sw sell"></i>{{ t.sellTitle }}
+              <i class="sw buy"></i>{{ t.buyTitle }}
+            </p>
+            @if (trendSince()) {
+              <p class="note">{{ t.trendSince(trendSince()) }}</p>
+            }
+          } @else {
+            <p class="empty">{{ t.trendEmpty }}</p>
+          }
         } @else {
-          <p class="empty">{{ t.trendEmpty }}</p>
+          <p class="empty">{{ t.trendLoading }}</p>
         }
       </section>
     }
