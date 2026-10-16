@@ -1,0 +1,33 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  // Becomes https://<name>.<your-subdomain>.workers.dev — rename before the first deploy if you like.
+  "name": "iraq-dollar-rate",
+  "main": "worker/index.js",
+  "compatibility_date": "2025-09-01",
+  "assets": {
+    // Output of `ng build`.
+    "directory": "./dist/tg-mini-app/browser",
+    "binding": "ASSETS"
+  },
+  // Bot storage: price alerts and daily-summary subscribers. Schema in migrations/.
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "iraq-dollar-rate-db",
+      "database_id": "1e0f1e77-497b-441b-9f0e-eef8fff69b8b"
+    }
+  ],
+  "triggers": {
+    "crons": [
+      // Check price alerts.
+      "*/5 * * * *",
+      // Daily summary at 10:00 Baghdad time (UTC+3).
+      "0 7 * * *"
+    ]
+  },
+  "vars": {
+    // Opened by the bot's "افتح الأسعار" buttons.
+    "APP_URL": "https://iraq-dollar-rate.launchpad-apps.workers.dev/"
+  },
+  "observability": { "enabled": true }
+}

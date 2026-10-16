@@ -1,0 +1,173 @@
+@let t = i18n.t();
+
+<!-- City photo backdrop: the active city's photo, defocused, fills the screen behind the glass. -->
+<div class="backdrop" aria-hidden="true">
+  @for (c of cities; track c.key; let i = $index) {
+    <img [src]="c.photo" alt="" [class.on]="activeKey() === c.key" />
+  }
+  <div class="backdrop-shade"></div>
+</div>
+
+<main class="page">
+  <header class="topbar">
+    <div class="heading">
+      <h1>{{ t.title }}</h1>
+      <p class="today">{{ today() }}</p>
+    </div>
+    <div class="topbar-actions">
+      <button type="button" class="status glass" (click)="refresh()" [attr.aria-label]="t.refresh"
+              [class.error]="rates.error()" [class.loading]="rates.loading()">
+        @if (rates.loading()) {
+          <app-icon name="refresh" class="status-icon" />
+        } @else {
+          <span class="pulse" aria-hidden="true"></span>
+        }
+        @if (rates.error()) {
+          <span>{{ t.loadError }}</span>
+        } @else if (rates.lastUpdated()) {
+          <span>{{ t.live }}</span>
+          <bdi class="num">{{ rates.lastUpdated() | date: 'HH:mm:ss' }}</bdi>
+        } @else {
+          <span>{{ t.connecting }}</span>
+        }
+      </button>
+      <button type="button" class="icon-btn glass" (click)="toggleLang()" [attr.aria-label]="t.switchLang">
+        <app-icon name="languages" />
+      </button>
+    </div>
+  </header>
+
+  @if (cards().length) {
+    <section class="rail" #rail (scroll)="onRailScroll()" [attr.aria-label]="t.cityPicker">
+      @for (card of cards(); track card.market.key; let i = $index) {
+        @let m = card.market;
+        <article #card class="city-card glass-strong" [class.active]="i === activeIndex()" [style.--card-tint]="card.city.tint"
+                 [attr.aria-label]="i18n.marketLabel(m.key)" (click)="goTo(i)">
+          <div class="banner">
+            <img class="city-photo" [src]="card.city.photo" alt="" [style.object-position]="card.city.photoFocus ?? 'center'"
+                 [style.transform]="'translateX(' + (offsets().at(i) ?? 0) * -32 + 'px) scale(1.15)'" />
+            <div class="city-scrim" aria-hidden="true"></div>
+            <h2 class="city-name">{{ i18n.marketLabel(m.key) }}</h2>
+            @if (card.city.credit; as credit) {
+              <a class="credit" dir="ltr" [href]="credit.url" target="_blank" rel="noopener" (click)="$event.stopPropagation()">
+                {{ credit.author }} · {{ credit.license }}
+              </a>
+            }
+          </div>
+
+          <div class="quote">
+            @for (k of [tickKey()]; track k) {
+              <span class="shine" [class.go]="k > 0" aria-hidden="true"></span>
+            }
+              <div class="quote-side">
+                <span class="quote-title">{{ t.sellShort }}</span>
+                <app-ticker class="quote-value" [value]="m.sell" format="1.0-2" />
+                <span class="delta" [class.up]="m.sellChange > 0" [class.down]="m.sellChange < 0">
+                  @if (m.sellChange) {
+                    <app-icon [name]="changeIcon(m.sellChange)" />
+                    <bdi class="num">{{ m.sellChange > 0 ? '+' : '' }}{{ m.sellChange | number: '1.0-2' }}</bdi>
+                  } @else {
+                    {{ t.steady }}
+                  }
+                </span>
+                <span class="quote-per">{{ t.per100Line((m.sell * 100 | number: '1.0-0') ?? '') }}</span>
+              </div>
+              <div class="quote-divider" aria-hidden="true"></div>
+              <div class="quote-side">
+                <span class="quote-title">{{ t.buyShort }}</span>
+                <app-ticker class="quote-value" [value]="m.buy" format="1.0-2" />
+                <span class="delta" [class.up]="m.buyChange > 0" [class.down]="m.buyChange < 0">
+                  @if (m.buyChange) {
+                    <app-icon [name]="changeIcon(m.buyChange)" />
+                    <bdi class="num">{{ m.buyChange > 0 ? '+' : '' }}{{ m.buyChange | number: '1.0-2' }}</bdi>
+                  } @else {
+                    {{ t.steady }}
+                  }
+                </span>
+                <span class="quote-per">{{ t.per100Line((m.buy * 100 | number: '1.0-0') ?? '') }}</span>
+              </div>
+          </div>
+        </article>
+      }
+    </section>
+
+    <nav class="pager" [attr.aria-label]="t.cityPicker">
+      @for (card of cards(); track card.market.key; let i = $index) {
+        <button type="button" [class.on]="i === activeIndex()" [attr.aria-current]="i === activeIndex()"
+                (click)="goTo(i)">{{ i18n.marketLabel(card.market.key) }}</button>
+      }
+    </nav>
+
+    @if (active(); as a) {
+      <section class="panel glass converter">
+        <h3>{{ t.converter }}</h3>
+        <div class="segmented" role="radiogroup">
+          <button type="button" role="radio" [attr.aria-checked]="have() === 'usd'" [class.on]="have() === 'usd'"
+                  (click)="setHave('usd')">{{ t.haveUsd }}</button>
+          <button type="button" role="radio" [attr.aria-checked]="have() === 'iqd'" [class.on]="have() === 'iqd'"
+                  (click)="setHave('iqd')">{{ t.haveIqd }}</button>
+        </div>
+        <label class="amount-label" for="amount">{{ t.enterAmount }}</label>
+        <div class="amount" (click)="amountInput.focus()">
+          <app-icon name="edit" class="amount-edit" />
+          <input #amountInput id="amount" type="text" inputmode="decimal" enterkeyhint="done" dir="ltr" autocomplete="off"
+                 placeholder="0" [value]="amountDisplay()" (input)="onAmount($event)" (focus)="onAmountFocus($event)"
+                 (blur)="amountFocused.set(false)" (keydown.enter)="$any($event.target).blur()" />
+          <span class="amount-currency">{{ have() === 'usd' ? t.usd : t.iqd }}</span>
+        </div>
+        <div class="result">
+          <span class="result-label">{{ t.youGet }}</span>
+          <span class="result-value">
+            <app-ticker [value]="converted() ?? 0" [format]="have() === 'usd' ? '1.0-0' : '1.2-2'" />
+            <small>{{ have() === 'usd' ? t.iqd : t.usd }}</small>
+          </span>
+        </div>
+        <p class="note">
+          {{ have() === 'usd'
+              ? t.rateUsed((a.market.buy | number: '1.0-2') ?? '', 'buy')
+              : t.rateUsed((a.market.sell | number: '1.0-2') ?? '', 'sell') }}
+        </p>
+      </section>
+
+      <section class="panel glass trend">
+        <div class="panel-head">
+          <h3>{{ t.trend }}</h3>
+          <span class="legend">
+            <i class="sw sell"></i>{{ t.sellTitle }}
+            <i class="sw buy"></i>{{ t.buyTitle }}
+          </span>
+        </div>
+        @if (trendPoints().length > 1) {
+          <app-trend-chart [points]="trendPoints()" [highLabel]="t.high" [lowLabel]="t.low"
+                           [ariaLabel]="t.trend + ' — ' + activeName()" />
+          <p class="note">{{ t.trendSince(trendSince()) }}</p>
+        } @else {
+          <p class="empty">{{ t.trendEmpty }}</p>
+        }
+      </section>
+    }
+  } @else if (!rates.error()) {
+    <div class="skeleton" aria-busy="true">
+      <div class="city-card ghost glass"></div>
+    </div>
+  }
+
+  <footer class="footer">
+    <p class="disclaimer">{{ t.disclaimer }}</p>
+    <p>{{ t.source }}: <a href="https://iraqborsa.com" target="_blank" rel="noopener">iraqborsa.com</a></p>
+  </footer>
+</main>
+
+<!-- Our own share button (Telegram's native bottom button can't show an icon). -->
+@if (active()) {
+  <div class="share-bar">
+    <button type="button" class="share-btn" (click)="share()">
+      <app-icon name="share" />
+      <span>{{ t.share(activeName()) }}</span>
+    </button>
+  </div>
+}
+
+@if (toast()) {
+  <div class="toast glass-strong" role="status">{{ toast() }}</div>
+}

@@ -1,0 +1,62 @@
+<!doctype html>
+<!--
+  BotFather picture (640×360): the owner's exchange icon, redrawn as vectors in the Baghdad screen's palette
+  (ink #0b0f14, Baghdad teal #7fd0de, white). Geometry follows the owner's original 1254px icon.
+  To re-render, from this folder:
+  "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" --headless=new --hide-scrollbars \
+    --force-device-scale-factor=2 --window-size=640,360 --virtual-time-budget=6000 \
+    --screenshot="$PWD/botfather-icon@2x.png" "file://$PWD/botfather-icon.html"
+  sips -z 360 640 botfather-icon@2x.png --out botfather-icon.png
+-->
+<html lang="ar">
+<head>
+<meta charset="utf-8">
+<link href="https://fonts.googleapis.com/css2?family=Readex+Pro:wght@700&display=block" rel="stylesheet">
+<style>
+  html, body { margin: 0; }
+  body {
+    width: 640px;
+    height: 360px;
+    overflow: hidden;
+    display: grid;
+    place-items: center;
+    /* The Baghdad screen: ink ground with a faint teal glow from the city tint. */
+    background:
+      radial-gradient(ellipse 60% 80% at 50% 40%, rgb(127 208 222 / 14%), transparent 70%),
+      #0b0f14;
+  }
+  svg { height: 318px; }
+  text { font-family: 'Readex Pro', sans-serif; font-weight: 700; }
+</style>
+</head>
+<body>
+<svg viewBox="170 155 915 915" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="tile" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#173843" />
+      <stop offset="1" stop-color="#0e1c22" />
+    </linearGradient>
+  </defs>
+
+  <!-- App tile: dark teal glass with a light edge, like the app's panels. -->
+  <rect x="215" y="198" width="825" height="850" rx="215" fill="url(#tile)" />
+  <rect x="215.5" y="198.5" width="824" height="849" rx="215" fill="none" stroke="rgb(255 255 255 / 16%)" stroke-width="3" />
+
+  <!-- Exchange arrows -->
+  <g fill="#7fd0de" stroke="#7fd0de" stroke-linejoin="round">
+    <path d="M640 388 C 720 375 795 405 824 475" fill="none" stroke-width="34" stroke-linecap="round" />
+    <path d="M852 548 L873 462 L779 498 Z" stroke-width="14" />
+    <path d="M600 840 C 520 852 448 825 421 760" fill="none" stroke-width="34" stroke-linecap="round" />
+    <path d="M398 692 L377 778 L469 744 Z" stroke-width="14" />
+  </g>
+
+  <!-- Dinar coin -->
+  <circle cx="517" cy="545" r="150" fill="#ffffff" />
+  <text x="517" y="545" dy="0.36em" text-anchor="middle" direction="rtl" font-size="118" fill="#0b0f14">د.ع</text>
+
+  <!-- Dollar coin in the Baghdad tint -->
+  <circle cx="765" cy="722" r="150" fill="#7fd0de" />
+  <text x="765" y="722" dy="0.36em" text-anchor="middle" font-size="190" fill="#0b0f14">$</text>
+</svg>
+</body>
+</html>

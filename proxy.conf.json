@@ -1,0 +1,7 @@
+{
+  "/borsa-api": {
+    "target": "https://iraqborsa.com",
+    "secure": true,
+    "changeOrigin": true
+  }
+}

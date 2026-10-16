@@ -1,0 +1,615 @@
+:host {
+  display: block;
+  min-height: 100vh;
+  transition: --tint 0.7s var(--ease-out);
+}
+
+// ── Glass materials ───────────────────────────────────────────
+// Glass here has one job: let the active city's photo show through every surface.
+.glass {
+  background: rgb(255 255 255 / 7%);
+  backdrop-filter: blur(20px) saturate(160%);
+  -webkit-backdrop-filter: blur(20px) saturate(160%);
+  border: 1px solid var(--edge);
+}
+
+.glass-strong {
+  background: rgb(10 14 20 / 46%);
+  backdrop-filter: blur(18px) saturate(170%);
+  -webkit-backdrop-filter: blur(18px) saturate(170%);
+  border: 1px solid rgb(255 255 255 / 16%);
+}
+
+.num {
+  font-variant-numeric: tabular-nums;
+}
+
+// ── Backdrop ─────────────────────────────────────────────────
+.backdrop {
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+  z-index: 0;
+
+  img {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    filter: blur(30px) saturate(1.35) brightness(0.6);
+    transform: scale(1.25);
+    opacity: 0;
+    transition: opacity 0.9s var(--ease-out);
+
+    &.on { opacity: 1; }
+  }
+}
+
+.backdrop-shade {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgb(11 15 20 / 30%) 0%, rgb(11 15 20 / 72%) 55%, var(--ink) 100%);
+}
+
+// ── Page ─────────────────────────────────────────────────────
+.page {
+  position: relative;
+  z-index: 1;
+  max-width: 520px;
+  margin: 0 auto;
+  padding: 12px 0 calc(96px + env(safe-area-inset-bottom));
+}
+
+h1, h2, h3, p {
+  margin: 0;
+}
+
+.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 0 16px 14px;
+
+  h1 {
+    font-size: 19px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    white-space: nowrap;
+  }
+}
+
+.heading { min-width: 0; }
+
+.today {
+  margin-top: 2px;
+  font-size: 12px;
+  color: var(--text-2);
+  white-space: nowrap;
+}
+
+.topbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 36px;
+  padding: 0 12px;
+  border-radius: 12px;
+  font-size: 13px;
+  cursor: pointer;
+  min-width: 0;
+
+  span:not(.pulse) {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .status-icon {
+    width: 14px;
+    height: 14px;
+    color: var(--text-2);
+  }
+
+  &.loading .status-icon { animation: spin 0.9s linear infinite; }
+  &.error { background: rgb(255 120 120 / 16%); }
+  &.error .pulse { background: var(--down); animation: none; }
+}
+
+.pulse {
+  width: 7px;
+  height: 7px;
+  flex: none;
+  border-radius: 50%;
+  background: var(--up);
+  animation: pulse 2.4s ease-in-out infinite;
+}
+
+.icon-btn {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  flex: none;
+  border-radius: 12px;
+  cursor: pointer;
+
+  app-icon { width: 18px; height: 18px; }
+}
+
+// ── City rail ────────────────────────────────────────────────
+.rail {
+  display: flex;
+  gap: 12px;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scroll-snap-type: x mandatory;
+  scrollbar-width: none;
+  padding: 4px 16px 8px;
+  scroll-padding-inline: 16px;
+
+  &::-webkit-scrollbar { display: none; }
+}
+
+.city-card {
+  position: relative;
+  flex: 0 0 100%;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  border-radius: 16px;
+  overflow: hidden;
+  scroll-snap-align: center;
+  scroll-snap-stop: always;
+  cursor: pointer;
+  opacity: 0.5;
+  transition: transform 0.5s var(--ease-out), opacity 0.5s var(--ease-out);
+  animation: rise 0.8s var(--ease-out) backwards;
+
+  &.active {
+    opacity: 1;
+    cursor: default;
+  }
+
+  &:nth-child(2) { animation-delay: 60ms; }
+  &:nth-child(3) { animation-delay: 120ms; }
+}
+
+// Short photo strip: enough to recognise the city, never more than the prices.
+.banner {
+  position: relative;
+  height: 136px;
+  overflow: hidden;
+  isolation: isolate;
+}
+
+.city-photo {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  z-index: -2;
+  will-change: transform;
+}
+
+.city-scrim {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: linear-gradient(0deg, rgb(0 0 0 / 62%) 0%, rgb(0 0 0 / 0%) 70%);
+}
+
+.city-name {
+  position: absolute;
+  bottom: 10px;
+  inset-inline-start: 16px;
+  font-size: 32px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+  text-shadow: 0 2px 12px rgb(0 0 0 / 45%);
+}
+
+.credit {
+  position: absolute;
+  top: 8px;
+  inset-inline-end: 10px;
+  max-width: 60%;
+  padding: 2px 6px;
+  border-radius: 6px;
+  background: rgb(0 0 0 / 35%);
+  font-size: 9.5px;
+  color: rgb(255 255 255 / 80%);
+  text-decoration: none;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+// ── Quote (card body) ────────────────────────────────────────
+.quote {
+  position: relative;
+  display: grid;
+  grid-template-columns: 1fr 1px 1fr;
+  gap: 4px 16px;
+  padding: 16px 20px 18px;
+  overflow: hidden;
+}
+
+.quote-side {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.quote-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--card-tint);
+}
+
+
+.quote-per {
+  margin-top: 12px;
+  font-size: 12px;
+  color: var(--text-2);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+// The ticker is dir="ltr" to keep digits in order; shrink-wrapping it lets the column's own
+// direction place it (right in Arabic, left in English).
+.quote-value {
+  align-self: flex-start;
+  font-size: clamp(32px, 10vw, 42px);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.15;
+  font-variant-numeric: tabular-nums;
+}
+
+.quote-divider {
+  background: var(--edge);
+}
+
+// Change chip: "ثابت" when steady, signed per-$1 change when it moved.
+.delta {
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 10px;
+  padding: 5px 12px;
+  border-radius: 999px;
+  background: rgb(255 255 255 / 8%);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-2);
+
+  app-icon { width: 14px; height: 14px; }
+
+  &.up { color: var(--up); background: color-mix(in srgb, var(--up) 14%, transparent); }
+  &.down { color: var(--down); background: color-mix(in srgb, var(--down) 14%, transparent); }
+}
+
+.shine {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(105deg, transparent 30%, rgb(255 255 255 / 20%) 50%, transparent 70%);
+  transform: translateX(-120%);
+
+  &.go { animation: sweep 1.2s var(--ease-out); }
+}
+
+// ── Pager ────────────────────────────────────────────────────
+.pager {
+  display: flex;
+  justify-content: center;
+  gap: 6px;
+  padding: 6px 16px 4px;
+
+  button {
+    height: 32px;
+    padding: 0 14px;
+    border: 0;
+    border-radius: 999px;
+    background: transparent;
+    color: var(--text-2);
+    font-size: 13px;
+    cursor: pointer;
+    transition: background-color 0.4s var(--ease-out), color 0.4s var(--ease-out);
+
+    &.on {
+      background: var(--tint);
+      color: var(--ink);
+      font-weight: 600;
+    }
+  }
+}
+
+// ── Panels ───────────────────────────────────────────────────
+.panel {
+  margin: 16px 16px 0;
+  padding: 18px;
+  border-radius: 16px;
+
+  h3 {
+    font-size: 15px;
+    font-weight: 600;
+  }
+}
+
+.panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.note {
+  margin-top: 10px;
+  font-size: 12px;
+  color: var(--text-2);
+}
+
+.empty {
+  padding: 8px 0 4px;
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--text-2);
+}
+
+// Converter
+.converter h3 { margin-bottom: 14px; }
+
+.segmented {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px;
+  padding: 4px;
+  border-radius: 12px;
+  background: rgb(0 0 0 / 28%);
+
+  button {
+    height: 38px;
+    border: 0;
+    border-radius: 9px;
+    background: transparent;
+    color: var(--text-2);
+    font-size: 14px;
+    cursor: pointer;
+    transition: background-color 0.4s var(--ease-out), color 0.4s var(--ease-out);
+
+    &.on {
+      background: var(--tint);
+      color: var(--ink);
+      font-weight: 600;
+    }
+  }
+}
+
+.amount-label {
+  display: block;
+  margin-top: 16px;
+  margin-bottom: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-2);
+}
+
+// A filled, bordered box with an edit icon, so it clearly reads as somewhere to type.
+.amount {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  border-radius: 12px;
+  border: 1.5px solid rgb(255 255 255 / 22%);
+  background: rgb(255 255 255 / 6%);
+  cursor: text;
+  transition: border-color 0.25s var(--ease-out), background-color 0.25s var(--ease-out), box-shadow 0.25s var(--ease-out);
+
+  &:focus-within {
+    border-color: var(--tint);
+    background: rgb(255 255 255 / 9%);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--tint) 25%, transparent);
+  }
+
+  input {
+    flex: 1;
+    min-width: 0;
+    border: 0;
+    outline: 0;
+    padding: 0;
+    background: transparent;
+    color: var(--text);
+    caret-color: var(--tint);
+    font: inherit;
+    font-size: 30px;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    font-variant-numeric: tabular-nums;
+    text-align: start;
+
+    &::placeholder { color: rgb(255 255 255 / 30%); }
+  }
+}
+
+.amount-edit {
+  width: 18px;
+  height: 18px;
+  color: var(--tint);
+}
+
+.amount-currency {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-2);
+}
+
+.result {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 14px;
+}
+
+.result-label {
+  font-size: 14px;
+  color: var(--text-2);
+}
+
+.result-value {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  font-size: 28px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+  color: var(--tint);
+
+  small {
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--text-2);
+  }
+}
+
+// Trend
+.legend {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--text-2);
+}
+
+.sw {
+  display: inline-block;
+  width: 14px;
+  height: 0;
+  border-top: 2px solid var(--tint);
+
+  &.buy {
+    margin-inline-start: 8px;
+    border-top: 2px dashed var(--text-2);
+  }
+}
+
+// ── Footer, skeleton, toast ──────────────────────────────────
+.footer {
+  margin: 28px 20px 0;
+  font-size: 11px;
+  text-align: center;
+  color: var(--text-2);
+
+  p { margin: 0; }
+}
+
+.footer .disclaimer {
+  margin-bottom: 8px;
+  line-height: 1.7;
+}
+
+// ── Share button (fixed, like Telegram's bottom button) ──────
+.share-bar {
+  position: fixed;
+  z-index: 2;
+  inset-inline: 0;
+  bottom: 0;
+  padding: 16px 16px calc(12px + env(safe-area-inset-bottom));
+  background: linear-gradient(0deg, var(--ink) 40%, rgb(11 15 20 / 0%));
+  pointer-events: none;
+}
+
+.share-btn {
+  pointer-events: auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  width: 100%;
+  max-width: 488px;
+  height: 52px;
+  margin: 0 auto;
+  border: 0;
+  border-radius: 14px;
+  background: var(--tint);
+  color: var(--ink);
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: 0 10px 28px -12px rgb(0 0 0 / 70%);
+  transition: transform 0.15s var(--ease-out);
+
+  app-icon { width: 20px; height: 20px; }
+
+  &:active { transform: scale(0.98); }
+}
+
+.skeleton {
+  display: flex;
+  padding: 4px 16px 8px;
+
+  .ghost {
+    flex: 1;
+    height: 290px;
+    transform: none;
+    opacity: 1;
+    background:
+      linear-gradient(105deg, transparent 30%, rgb(255 255 255 / 8%) 50%, transparent 70%) 0 0 / 250% 100%,
+      rgb(255 255 255 / 5%);
+    animation: shimmer 1.6s linear infinite;
+  }
+}
+
+.toast {
+  position: fixed;
+  z-index: 2;
+  bottom: calc(84px + env(safe-area-inset-bottom));
+  left: 50%;
+  translate: -50% 0;
+  padding: 10px 16px;
+  border-radius: 12px;
+  font-size: 14px;
+  animation: rise 0.5s var(--ease-out) backwards;
+}
+
+// ── Motion ───────────────────────────────────────────────────
+@keyframes rise {
+  from { transform: translateY(14px) scale(0.97); }
+}
+
+@keyframes sweep {
+  from { transform: translateX(-120%); }
+  to { transform: translateX(120%); }
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.35; }
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes shimmer {
+  from { background-position: 150% 0, 0 0; }
+  to { background-position: -100% 0, 0 0; }
+}
