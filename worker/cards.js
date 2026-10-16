@@ -1,8 +1,12 @@
 // Rate-card images: the Mini App draws the card (browsers shape Arabic correctly and it costs the Worker no CPU),
 // uploads the JPEG here, and gets back a Telegram "prepared message" id to open the native share sheet with.
+//
+// The photo is first uploaded to Telegram itself (into the user's chat with the bot, then that helper message is
+// deleted) so the shared message carries a native Telegram photo. Sharing it by URL instead made Telegram's
+// phone apps show it half gray. The URL form is kept only as a fallback.
 
 import { CITIES, fmt, getRates } from './rates.js';
-import { tg } from './telegram.js';
+import { tg, tgUpload } from './telegram.js';
 
 const MAX_BYTES = 1_500_000;
 const KEEP_MS = 7 * 86_400_000;
@@ -31,21 +35,23 @@ export async function createCard(request, env, userId) {
     if (r) caption += `\nبيع ${fmt(r.sell)} · شراء ${fmt(r.buy)} (لكل 1$)`;
   } catch { /* image alone is fine */ }
 
+  const fileId = await uploadToTelegram(env, userId, image);
+  const photo = fileId ? { photo_file_id: fileId } : { photo_url: url, thumbnail_url: url, photo_width: 1080, photo_height: 1080 };
+
   let prepared;
   try {
     prepared = await tg(env, 'savePreparedInlineMessage', {
-    user_id: userId,
-    result: {
-      type: 'photo',
-      id: id.slice(0, 32),
-      photo_url: url,
-      thumbnail_url: url,
-      caption,
-      reply_markup: { inline_keyboard: [[{ text: 'افتح الأسعار 💵', url: MINI_APP_LINK }]] },
-    },
-    allow_user_chats: true,
-    allow_group_chats: true,
-    allow_channel_chats: true,
+      user_id: userId,
+      result: {
+        type: 'photo',
+        id: id.slice(0, 32),
+        ...photo,
+        caption,
+        reply_markup: { inline_keyboard: [[{ text: 'افتح الأسعار 💵', url: MINI_APP_LINK }]] },
+      },
+      allow_user_chats: true,
+      allow_group_chats: true,
+      allow_channel_chats: true,
     });
   } catch (err) {
     console.error('savePreparedInlineMessage failed:', err.message);
@@ -53,6 +59,26 @@ export async function createCard(request, env, userId) {
     return json({ error: 'telegram', url }, 502);
   }
   return json({ preparedId: prepared.id, url }, 201);
+}
+
+/**
+ * Uploads the card as a photo to the user's chat with the bot, deletes that message, and returns the largest
+ * size's file_id (still valid after deletion). Returns null if the bot can't message the user.
+ */
+async function uploadToTelegram(env, userId, image) {
+  const form = new FormData();
+  form.append('chat_id', String(userId));
+  form.append('disable_notification', 'true');
+  form.append('photo', new Blob([image], { type: 'image/jpeg' }), 'rate.jpg');
+  try {
+    const message = await tgUpload(env, 'sendPhoto', form);
+    const largest = message.photo?.reduce((a, b) => (b.width * b.height > a.width * a.height ? b : a));
+    await tg(env, 'deleteMessage', { chat_id: userId, message_id: message.message_id }).catch(() => {});
+    return largest?.file_id ?? null;
+  } catch (err) {
+    console.warn('photo upload failed, sharing by URL instead:', err.message);
+    return null;
+  }
 }
 
 /**

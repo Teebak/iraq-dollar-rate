@@ -19,6 +19,15 @@ export async function tg(env, method, body) {
   return data.result;
 }
 
+/** Like tg(), for methods that upload files (multipart/form-data). */
+export async function tgUpload(env, method, form) {
+  const base = env.TELEGRAM_API || 'https://api.telegram.org';
+  const res = await fetch(`${base}/bot${env.BOT_TOKEN}/${method}`, { method: 'POST', body: form });
+  const data = await res.json().catch(() => ({}));
+  if (!data.ok) throw new TelegramError(method, data.error_code ?? res.status, data.description ?? '');
+  return data.result;
+}
+
 /** 403 means the user blocked the bot or deleted their account: stop messaging them. */
 export const isGone = err => err instanceof TelegramError && err.status === 403;
 
