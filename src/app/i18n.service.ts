@@ -7,6 +7,8 @@ const DEFAULT_LANG: Lang = 'ar';
 
 const ar = {
   title: 'سعر الدولار',
+  brand: 'شكد الدولار؟',
+  preparingShare: 'جارٍ تجهيز الصورة…',
   live: 'مباشر',
   connecting: 'جارٍ الاتصال…',
   loadError: 'تعذّر تحميل الأسعار — سنحاول مجددًا تلقائيًا',
@@ -66,6 +68,8 @@ type Dict = typeof ar;
 
 const en: Dict = {
   title: 'Dollar rate',
+  brand: 'Shkad Dollar?',
+  preparingShare: 'Preparing image…',
   live: 'Live',
   connecting: 'Connecting…',
   loadError: 'Couldn’t load prices — retrying automatically',

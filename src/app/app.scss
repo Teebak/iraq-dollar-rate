@@ -610,6 +610,9 @@ h1, h2, h3, p {
   app-icon { width: 20px; height: 20px; }
 
   &:active { transform: scale(0.98); }
+  &:disabled { opacity: 0.85; cursor: default; }
+
+  .spin { animation: spin 0.9s linear infinite; }
 }
 
 .skeleton {

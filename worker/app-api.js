@@ -4,18 +4,22 @@
 //   GET    /api/alerts        → { alerts: [...], max }
 //   POST   /api/alerts        { market, side, target } → 201 { alert, current } | 4xx { error, current? }
 //   DELETE /api/alerts/<id>   → 204 | 404
+//   POST   /api/cards?market= JPEG body → 201 { preparedId, url }   (see cards.js)
 
 import { MAX_ALERTS, addAlert, deleteAlert, listAlerts } from './alerts.js';
 import { getRates } from './rates.js';
+import { createCard } from './cards.js';
 
 const MAX_AUTH_AGE_S = 24 * 60 * 60;
 
-export async function alertsApi(request, env, pathname) {
+export async function appApi(request, env, pathname) {
   if (!env.BOT_TOKEN) return json({ error: 'not_configured' }, 503);
   const user = await authenticate(request, env.BOT_TOKEN);
   if (!user) return json({ error: 'unauthorized' }, 401);
   // A user's private chat with the bot has the same id as the user.
   const chatId = user.id;
+
+  if (pathname === '/api/cards' && request.method === 'POST') return createCard(request, env, user.id);
 
   if (pathname === '/api/alerts' && request.method === 'GET') {
     return json({ alerts: await listAlerts(env, chatId), max: MAX_ALERTS });

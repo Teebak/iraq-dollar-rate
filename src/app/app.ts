@@ -11,6 +11,7 @@ import { TickerComponent } from './ticker.component';
 import { TrendChartComponent } from './trend-chart.component';
 import { IconComponent } from './icon.component';
 import { AlertSheetComponent } from './alert-sheet.component';
+import { ShareService } from './share.service';
 
 type Have = 'usd' | 'iqd';
 
@@ -32,6 +33,7 @@ export class App implements OnInit {
   protected readonly tg = inject(TelegramService);
   protected readonly rates = inject(RatesService);
   protected readonly i18n = inject(I18nService);
+  private readonly shareSvc = inject(ShareService);
   protected readonly historySvc = inject(HistoryService);
   protected readonly ranges: RangeDays[] = [1, 7, 30];
 
@@ -212,14 +214,42 @@ export class App implements OnInit {
     requestAnimationFrame(() => input.select());
   }
 
+  /** True while the rate card image is being drawn and uploaded. */
+  protected readonly sharing = signal(false);
+
   protected async share(): Promise<void> {
     const a = this.active();
-    if (!a) return;
-    const fmt = (n: number) => Math.round(n * 100).toLocaleString('en-US');
-    const time = this.rates.lastUpdated()?.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }) ?? '';
+    if (!a || this.sharing()) return;
     const t = this.i18n.t();
+    const one = (n: number) => n.toLocaleString('en-US', { maximumFractionDigits: 2 });
+    const hundred = (n: number) => Math.round(n * 100).toLocaleString('en-US');
+    const time = this.rates.lastUpdated()?.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }) ?? '';
+    const text = t.shareText(this.activeName(), hundred(a.market.sell), hundred(a.market.buy), time);
     this.tg.haptic('medium');
-    const result = await this.tg.share(t.shareText(this.activeName(), fmt(a.market.sell), fmt(a.market.buy), time), SHARE_URL);
+
+    // Rate card image first; plain text if images can't be shared here.
+    this.sharing.set(true);
+    try {
+      const result = await this.shareSvc.shareImage(a.market.key, {
+        dir: this.i18n.dir(),
+        title: t.brand,
+        date: this.today(),
+        cityName: this.activeName(),
+        photoUrl: a.city.photo,
+        tint: a.city.tint,
+        sell: { label: t.sellShort, price: one(a.market.sell), per100: t.per100Line(hundred(a.market.sell)) },
+        buy: { label: t.buyShort, price: one(a.market.buy), per100: t.per100Line(hundred(a.market.buy)) },
+        footerStart: '@ShkadDollarBot',
+        footerEnd: `iraqborsa.com · ${time}`,
+      }, `${text}\n${SHARE_URL}`);
+      if (result !== 'unavailable') return;
+    } catch (err) {
+      console.warn('image share failed, falling back to text', err);
+    } finally {
+      this.sharing.set(false);
+    }
+
+    const result = await this.tg.share(text, SHARE_URL);
     if (result === 'copied') this.showToast(t.copied);
   }
 

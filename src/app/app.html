@@ -180,9 +180,9 @@
 <!-- Our own share button (Telegram's native bottom button can't show an icon). -->
 @if (active()) {
   <div class="share-bar">
-    <button type="button" class="share-btn" (click)="share()">
-      <app-icon name="share" />
-      <span>{{ t.share(activeName()) }}</span>
+    <button type="button" class="share-btn" (click)="share()" [disabled]="sharing()">
+      <app-icon [name]="sharing() ? 'refresh' : 'share'" [class.spin]="sharing()" />
+      <span>{{ sharing() ? t.preparingShare : t.share(activeName()) }}</span>
     </button>
   </div>
 }

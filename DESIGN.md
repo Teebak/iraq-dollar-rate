@@ -48,6 +48,6 @@ Cards and panels use a 16px radius, the quote panel 14px, and controls 12px (seg
 A public-prices disclaimer (information only, not an offer or financial advice, shop prices may differ) above the source link, both 11px `--text-2`.
 
 ## Telegram integration
-- Sharing uses the app's own fixed bottom button (`--tint` fill, share icon, 52px, 14px radius) over an ink fade, because Telegram's native main button can't show an icon.
+- Sharing draws a 1080×1080 rate card on the device (`src/app/rate-card.ts`: city photo under an ink fade, brand and date, city name 120/700, sell | buy at 128/700 with tint labels and the 100 USD line, `@ShkadDollarBot` footer) and opens Telegram's share sheet (`shareMessage`, Bot API 8.0+), falling back to the device share sheet, then a text share. The button is the app's own fixed bottom button (`--tint` fill, share icon, 52px, 14px radius) over an ink fade, because Telegram's native main button can't show an icon.
 - Telegram's header, background and bottom bar are painted `--ink`.
 - Vertical swipe-to-close is disabled.

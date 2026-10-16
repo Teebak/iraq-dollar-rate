@@ -71,6 +71,15 @@ export class TelegramService {
     }
   }
 
+  /** Telegram's native "share to chat" sheet for a prepared message (Bot API 8.0+). */
+  get canShareMessage(): boolean {
+    return this.isInTelegram && !!this.webApp?.isVersionAtLeast('8.0');
+  }
+
+  shareMessage(preparedId: string): Promise<boolean> {
+    return new Promise(resolve => this.webApp!.shareMessage(preparedId, sent => this.zone.run(() => resolve(sent))));
+  }
+
   /**
    * Asks the user to let the bot message them (needed for alerts). Resolves true if granted or already allowed;
    * outside Telegram or on old clients it resolves true and lets the server report a failure later.
