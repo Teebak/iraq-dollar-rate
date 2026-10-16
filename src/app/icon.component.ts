@@ -1,6 +1,6 @@
 import { Component, input } from '@angular/core';
 
-export type IconName = 'refresh' | 'share' | 'languages' | 'up' | 'down' | 'flat' | 'edit';
+export type IconName = 'refresh' | 'share' | 'languages' | 'up' | 'down' | 'flat' | 'edit' | 'bell' | 'x';
 
 /** Stroke icons (Lucide geometry, 24px grid, 2px stroke). */
 @Component({
@@ -40,6 +40,14 @@ export type IconName = 'refresh' | 'share' | 'languages' | 'up' | 'down' | 'flat
         }
         @case ('flat') {
           <path d="M5 12h14" />
+        }
+        @case ('bell') {
+          <path d="M10.27 21a2 2 0 0 0 3.46 0" />
+          <path d="M3.26 15.33A1 1 0 0 0 4 17h16a1 1 0 0 0 .74-1.67C19.41 13.96 18 12.5 18 8A6 6 0 0 0 6 8c0 4.5-1.41 5.96-2.74 7.33" />
+        }
+        @case ('x') {
+          <path d="M18 6 6 18" />
+          <path d="m6 6 12 12" />
         }
         @case ('edit') {
           <path d="M21.17 6.81a1 1 0 0 0-3.99-3.99L3.84 16.17a2 2 0 0 0-.5.83l-1.32 4.35a.5.5 0 0 0 .62.62l4.35-1.32a2 2 0 0 0 .83-.5z" />

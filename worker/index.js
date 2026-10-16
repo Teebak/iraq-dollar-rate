@@ -3,6 +3,7 @@
 // only requests that don't match a file reach fetch() below.
 //
 // /borsa-api/summary.php  proxies iraqborsa.com from the app's own origin (the API sends no CORS headers).
+// /api/alerts            the signed-in user's price alerts (Mini App; auth by Telegram initData), see app-api.js.
 // /api/history           shared price history for the app's chart (recorded by the cron, stored in D1).
 // /telegram/webhook       receives bot updates (set up with scripts/setup-bot.mjs). Needs the BOT_TOKEN secret.
 // scheduled()             checks price alerts every 5 minutes and sends the 10:00 daily summary (see wrangler.jsonc).
@@ -11,6 +12,7 @@ import { webhookSecret } from './telegram-secret.js';
 import { fetchUpstream, getRates } from './rates.js';
 import { RANGE_DAYS, getHistory, recordHistory } from './history.js';
 import { checkAlerts, handleUpdate, sendDailySummary } from './bot.js';
+import { alertsApi } from './app-api.js';
 
 const DAILY_CRON = '0 7 * * *';
 
@@ -19,6 +21,7 @@ export default {
     const { pathname } = new URL(request.url);
     if (pathname === '/borsa-api/summary.php') return proxyRates(request);
     if (pathname === '/api/history') return historyApi(request, env);
+    if (pathname === '/api/alerts' || pathname.startsWith('/api/alerts/')) return alertsApi(request, env, pathname);
     if (pathname === '/telegram/webhook') return handleTelegram(request, env, ctx);
     return env.ASSETS.fetch(request);
   },

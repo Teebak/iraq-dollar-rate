@@ -10,6 +10,7 @@ import { CITIES, City, cityFor } from './cities';
 import { TickerComponent } from './ticker.component';
 import { TrendChartComponent } from './trend-chart.component';
 import { IconComponent } from './icon.component';
+import { AlertSheetComponent } from './alert-sheet.component';
 
 type Have = 'usd' | 'iqd';
 
@@ -22,7 +23,7 @@ interface CityCard { market: Market; city: City }
 
 @Component({
   selector: 'app-root',
-  imports: [DecimalPipe, DatePipe, TickerComponent, TrendChartComponent, IconComponent],
+  imports: [DecimalPipe, DatePipe, TickerComponent, TrendChartComponent, IconComponent, AlertSheetComponent],
   templateUrl: './app.html',
   styleUrl: './app.scss',
   host: { '[style.--tint]': 'tint()' },
@@ -87,6 +88,9 @@ export class App implements OnInit {
     const locale = this.i18n.lang() === 'ar' ? 'ar-IQ-u-nu-latn' : 'en-GB';
     return new Intl.DateTimeFormat(locale, { day: 'numeric', month: 'long', hour: 'numeric', minute: '2-digit' }).format(h.since);
   });
+
+  /** Market whose alert sheet is open, or null. */
+  protected readonly alertMarket = signal<string | null>(null);
 
   protected readonly toast = signal<string | null>(null);
   protected readonly tickKey = signal(0);
@@ -169,6 +173,12 @@ export class App implements OnInit {
   protected refresh(): void {
     this.tg.haptic('light');
     this.rates.refresh();
+  }
+
+  protected openAlerts(market: string, event: Event): void {
+    event.stopPropagation(); // don't let the card's own click scroll the rail
+    this.alertMarket.set(market);
+    this.tg.haptic('light');
   }
 
   protected setRange(days: RangeDays): void {

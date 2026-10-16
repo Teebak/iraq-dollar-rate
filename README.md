@@ -12,7 +12,10 @@ Live: https://iraq-dollar-rate.launchpad-apps.workers.dev · Mini App: https://t
 |---|---|---|
 | Mini App | `src/` (Angular 20) | City cards, converter, trend chart, share button |
 | Worker | `worker/` (Cloudflare) | Serves the app, proxies the rates API (no CORS upstream), handles the bot webhook |
-| Bot jobs | `worker/bot.js` + cron in `wrangler.jsonc` | Price alerts every 5 min, daily summary 10:00 Baghdad time |
+| Bot | `worker/bot.js`, `worker/inline.js` | Commands, inline mode (`@ShkadDollarBot` in any chat) |
+| Alerts | `worker/alerts.js`, `worker/app-api.js` | Price alerts for any city/side; app API authenticated by Telegram initData |
+| History | `worker/history.js` | Shared price history, `/api/history` |
+| Cron | `wrangler.jsonc` | Every 5 min: record history, fire alerts. 10:00 Baghdad: daily summary |
 | Database | Cloudflare D1, schema in `migrations/` | Alerts, subscribers, de-duplication of Telegram updates |
 | Bot setup | `scripts/setup-bot.mjs` | Stores the bot token as a Worker secret, sets webhook, menu, descriptions, commands |
 

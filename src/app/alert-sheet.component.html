@@ -1,0 +1,64 @@
+@let t = i18n.t();
+<div class="scrim" (click)="close.emit()"></div>
+<section class="sheet" role="dialog" aria-modal="true" [attr.aria-label]="t.alertTitle(cityName())">
+  <header class="head">
+    <h2><app-icon name="bell" /> {{ t.alertTitle(cityName()) }}</h2>
+    <button type="button" class="close" (click)="close.emit()" [attr.aria-label]="t.close"><app-icon name="x" /></button>
+  </header>
+
+  @if (!alertsSvc.available) {
+    <p class="only-tg">{{ t.alertOnlyTelegram }}</p>
+    <a class="primary" href="https://t.me/ShkadDollarBot/rates" target="_blank" rel="noopener">{{ t.alertOpenInTelegram }}</a>
+  } @else {
+    <div class="segmented" role="radiogroup">
+      @for (s of ['sell', 'buy']; track s) {
+        <button type="button" role="radio" [attr.aria-checked]="side() === s" [class.on]="side() === s"
+                (click)="setSide($any(s))">{{ sideLabel($any(s)) }}</button>
+      }
+    </div>
+
+    @if (current() != null) {
+      <p class="now">{{ t.alertNow }} <bdi class="num">{{ current() | number: '1.0-2' }}</bdi></p>
+    }
+
+    <label class="field-label" for="alert-target">{{ t.alertTarget }}</label>
+    <div class="field">
+      <input id="alert-target" type="text" inputmode="decimal" dir="ltr" autocomplete="off"
+             [value]="targetText()" (input)="onTarget($event)" (keydown.enter)="create()" />
+      <span>{{ t.iqdPer1 }}</span>
+    </div>
+
+    @if (current() != null) {
+      <div class="chips">
+        @for (step of steps; track step) {
+          <button type="button" (click)="nudge(step)">
+            <bdi>{{ step > 0 ? '▲' : '▼' }} {{ current()! + step | number: '1.0-2' }}</bdi>
+          </button>
+        }
+      </div>
+    }
+
+    <button type="button" class="primary" [disabled]="busy() || !targetText()" (click)="create()">
+      <app-icon name="bell" /> {{ t.alertCreate }}
+    </button>
+
+    @if (message(); as m) {
+      <p class="message" [class.error]="m.kind === 'error'" role="status">{{ m.text }}</p>
+    }
+
+    <h3>{{ t.alertList }}</h3>
+    @if (alertsSvc.alerts().length) {
+      <ul class="list">
+        @for (a of alertsSvc.alerts(); track a.id) {
+          <li>
+            <span>{{ i18n.marketLabel(a.market) }} · {{ sideLabel(a.side) }}</span>
+            <bdi class="num">{{ a.direction === 'up' ? '▲' : '▼' }} {{ a.target | number: '1.0-2' }}</bdi>
+            <button type="button" (click)="remove(a.id)" [attr.aria-label]="t.alertDelete"><app-icon name="x" /></button>
+          </li>
+        }
+      </ul>
+    } @else {
+      <p class="none">{{ t.alertNone }}</p>
+    }
+  }
+</section>

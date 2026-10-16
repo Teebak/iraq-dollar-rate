@@ -71,6 +71,16 @@ export class TelegramService {
     }
   }
 
+  /**
+   * Asks the user to let the bot message them (needed for alerts). Resolves true if granted or already allowed;
+   * outside Telegram or on old clients it resolves true and lets the server report a failure later.
+   */
+  requestWriteAccess(): Promise<boolean> {
+    const app = this.webApp;
+    if (!this.isInTelegram || !app?.isVersionAtLeast('6.9')) return Promise.resolve(true);
+    return new Promise(resolve => app.requestWriteAccess(granted => this.zone.run(() => resolve(granted))));
+  }
+
   /** Raw initData string — send this to your backend and validate it with your bot token. */
   get initData(): string {
     return this.webApp?.initData ?? '';

@@ -48,6 +48,9 @@
                  [style.transform]="'translateX(' + (offsets().at(i) ?? 0) * -32 + 'px) scale(1.15)'" />
             <div class="city-scrim" aria-hidden="true"></div>
             <h2 class="city-name">{{ i18n.marketLabel(m.key) }}</h2>
+            <button type="button" class="bell" (click)="openAlerts(m.key, $event)" [attr.aria-label]="t.alertBell">
+              <app-icon name="bell" />
+            </button>
             @if (card.city.credit; as credit) {
               <a class="credit" dir="ltr" [href]="credit.url" target="_blank" rel="noopener" (click)="$event.stopPropagation()">
                 {{ credit.author }} · {{ credit.license }}
@@ -169,6 +172,10 @@
     <p>{{ t.source }}: <a href="https://iraqborsa.com" target="_blank" rel="noopener">iraqborsa.com</a></p>
   </footer>
 </main>
+
+@if (alertMarket(); as market) {
+  <app-alert-sheet [market]="market" (close)="alertMarket.set(null)" />
+}
 
 <!-- Our own share button (Telegram's native bottom button can't show an icon). -->
 @if (active()) {
