@@ -19,8 +19,6 @@ const DESCRIPTION = [
   'شكد الدولار؟ 💵',
   '',
   'سعر البيع والشراء مباشر في بغداد وأربيل والبصرة، مع حاسبة عملات ومشاركة السعر بضغطة واحدة. 📤',
-  '',
-  'Live USD → IQD exchange rates for Baghdad, Erbil, and Basra — with a built-in calculator and one-tap sharing. 📤',
 ].join('\n');
 const SHORT_DESCRIPTION = 'شكد الدولار؟ سعر البيع والشراء مباشر في بغداد وأربيل والبصرة 💵';
 
