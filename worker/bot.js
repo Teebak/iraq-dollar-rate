@@ -75,7 +75,6 @@ async function sendRates(env, chatId) {
     body = [
       '📍 بغداد الآن',
       `بيع ${fmt(sell)}${delta} · شراء ${fmt(buy)}`,
-      `100$ = ${fmt(Math.round(sell * 100))} د.ع`,
     ].join('\n');
   } catch {
     body = 'تعذّر جلب الأسعار الآن. افتح التطبيق للأسعار المباشرة.';
