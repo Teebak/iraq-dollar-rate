@@ -55,13 +55,51 @@ export async function createCard(request, env, userId) {
   return json({ preparedId: prepared.id, url }, 201);
 }
 
-/** GET /cards/<id>.jpg */
-export async function serveCard(env, id) {
+/**
+ * GET/HEAD /cards/<id>.jpg. Supports Range requests: Telegram's phone apps fetch photos from a URL in chunks
+ * ("bytes=N-M"), and answering every chunk with the whole file leaves the picture half gray.
+ */
+export async function serveCard(request, env, id) {
   const row = await env.DB.prepare('SELECT image FROM share_cards WHERE id = ?').bind(id).first();
   if (!row) return new Response('Not found', { status: 404 });
-  return new Response(new Uint8Array(row.image), {
-    headers: { 'Content-Type': 'image/jpeg', 'Cache-Control': 'public, max-age=604800, immutable' },
-  });
+  const bytes = new Uint8Array(row.image);
+  const size = bytes.length;
+  const headers = {
+    'Content-Type': 'image/jpeg',
+    'Cache-Control': 'public, max-age=604800, immutable',
+    'Accept-Ranges': 'bytes',
+    ETag: `"${id}"`,
+  };
+
+  const range = parseRange(request.headers.get('Range'), size);
+  if (range === 'invalid') {
+    return new Response(null, { status: 416, headers: { ...headers, 'Content-Range': `bytes */${size}` } });
+  }
+  const body = request.method === 'HEAD' ? null : range ? bytes.subarray(range.start, range.end + 1) : bytes;
+  if (range) {
+    return new Response(body, {
+      status: 206,
+      headers: { ...headers, 'Content-Range': `bytes ${range.start}-${range.end}/${size}`, 'Content-Length': String(range.end - range.start + 1) },
+    });
+  }
+  return new Response(body, { headers: { ...headers, 'Content-Length': String(size) } });
+}
+
+/** Parses a single "bytes=start-end" / "bytes=start-" / "bytes=-suffix" range; null if absent. */
+function parseRange(header, size) {
+  if (!header) return null;
+  const m = header.match(/^bytes=(\d*)-(\d*)$/);
+  if (!m || (m[1] === '' && m[2] === '')) return 'invalid';
+  let start;
+  let end;
+  if (m[1] === '') {
+    start = Math.max(0, size - Number(m[2]));
+    end = size - 1;
+  } else {
+    start = Number(m[1]);
+    end = m[2] === '' ? size - 1 : Math.min(Number(m[2]), size - 1);
+  }
+  return start > end || start >= size ? 'invalid' : { start, end };
 }
 
 export function pruneCards(env, now = Date.now()) {

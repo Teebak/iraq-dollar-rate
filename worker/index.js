@@ -30,7 +30,7 @@ export default {
       return appApi(request, env, pathname);
     }
     const card = pathname.match(/^\/cards\/([a-f0-9]{32})\.jpg$/);
-    if (card && request.method === 'GET') return serveCard(env, card[1]);
+    if (card && (request.method === 'GET' || request.method === 'HEAD')) return serveCard(request, env, card[1]);
     if (pathname === '/telegram/webhook') return handleTelegram(request, env, ctx);
     return env.ASSETS.fetch(request);
   },
