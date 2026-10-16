@@ -5,6 +5,7 @@
 // /borsa-api/summary.php  proxies iraqborsa.com from the app's own origin (the API sends no CORS headers).
 // /api/cards, /cards/*   rate-card images drawn by the app and shared via Telegram, see cards.js.
 // /api/alerts            the signed-in user's price alerts (Mini App; auth by Telegram initData), see app-api.js.
+// /api/status            price-source health for the app's stale-data warning (see monitor.js).
 // /api/history           shared price history for the app's chart (recorded by the cron, stored in D1).
 // /telegram/webhook       receives bot updates (set up with scripts/setup-bot.mjs). Needs the BOT_TOKEN secret.
 // scheduled()             checks price alerts every 5 minutes and sends the 10:00 daily summary (see wrangler.jsonc).
@@ -15,6 +16,7 @@ import { RANGE_DAYS, getHistory, recordHistory } from './history.js';
 import { checkAlerts, handleUpdate, sendDailySummary } from './bot.js';
 import { appApi } from './app-api.js';
 import { pruneCards, serveCard } from './cards.js';
+import { publicStatus, sourceFailed, sourceOk } from './monitor.js';
 
 const DAILY_CRON = '0 7 * * *';
 
@@ -23,6 +25,7 @@ export default {
     const { pathname } = new URL(request.url);
     if (pathname === '/borsa-api/summary.php') return proxyRates(request);
     if (pathname === '/api/history') return historyApi(request, env);
+    if (pathname === '/api/status') return json(await publicStatus(env), 200, 'public, max-age=60');
     if (pathname === '/api/alerts' || pathname.startsWith('/api/alerts/') || pathname === '/api/cards') {
       return appApi(request, env, pathname);
     }
@@ -42,9 +45,15 @@ async function runCron(cron, env) {
     if (env.BOT_TOKEN) await sendDailySummary(env);
     return;
   }
-  // Every 5 minutes: record history (also without a bot), then fire any price alerts.
-  const rates = await getRates();
-  await recordHistory(env, rates);
+  // Every 5 minutes: check the source, record history (also without a bot), then fire any price alerts.
+  let rates;
+  try {
+    rates = await getRates(env.RATES_UPSTREAM); // unset in production; lets local tests simulate an outage
+  } catch (err) {
+    await sourceFailed(env, err);
+    return;
+  }
+  await sourceOk(env, await recordHistory(env, rates));
   await pruneCards(env);
   if (env.BOT_TOKEN) await checkAlerts(env, rates);
 }
@@ -58,7 +67,13 @@ async function proxyRates(request) {
   try {
     const upstream = await fetchUpstream();
     if (!upstream.ok) return json({ error: `upstream returned ${upstream.status}` }, 502);
-    return new Response(upstream.body, {
+    const body = await upstream.text();
+    // Same plausibility rule as the cron (rates.js): never pass a broken Baghdad price to the app.
+    const b = JSON.parse(body)?.b;
+    if (!(Number(b?.sell) >= 500 && Number(b?.sell) <= 5000 && Number(b?.buy) >= 500 && Number(b?.buy) <= 5000)) {
+      return json({ error: 'upstream returned implausible prices' }, 502);
+    }
+    return new Response(body, {
       headers: { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' },
     });
   } catch {
@@ -132,9 +147,9 @@ async function isRepeat(env, chatId, text) {
   return meta.changes === 0;
 }
 
-function json(body, status) {
+function json(body, status, cacheControl = 'no-store') {
   return new Response(JSON.stringify(body), {
     status,
-    headers: { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' },
+    headers: { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': cacheControl },
   });
 }

@@ -12,6 +12,7 @@ import { TrendChartComponent } from './trend-chart.component';
 import { IconComponent } from './icon.component';
 import { AlertSheetComponent } from './alert-sheet.component';
 import { ShareService } from './share.service';
+import { SourceStatusService } from './source-status.service';
 
 type Have = 'usd' | 'iqd';
 
@@ -34,6 +35,7 @@ export class App implements OnInit {
   protected readonly rates = inject(RatesService);
   protected readonly i18n = inject(I18nService);
   private readonly shareSvc = inject(ShareService);
+  protected readonly sourceStatus = inject(SourceStatusService);
   protected readonly historySvc = inject(HistoryService);
   protected readonly ranges: RangeDays[] = [1, 7, 30];
 

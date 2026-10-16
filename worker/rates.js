@@ -10,25 +10,32 @@ export const CITIES = [
   ['s', 'البصرة'],
 ];
 
-export function fetchUpstream() {
-  return fetch(UPSTREAM, {
+/** `url` overrides the source; only the RATES_UPSTREAM test var uses it (see index.js). */
+export function fetchUpstream(url = UPSTREAM) {
+  return fetch(url, {
     headers: { Accept: 'application/json' },
     cf: { cacheTtl: EDGE_CACHE_SECONDS, cacheEverything: true },
   });
 }
 
 /** Parsed rates keyed by market ('b', 'n', 's'), each { sell, buy } per $1. Throws if unavailable. */
-export async function getRates() {
-  const res = await fetchUpstream();
+export async function getRates(url) {
+  const res = await fetchUpstream(url);
   if (!res.ok) throw new Error(`upstream returned ${res.status}`);
   const data = await res.json();
   const rates = {};
   for (const [key] of CITIES) {
-    if (data[key]) rates[key] = { sell: Number(data[key].sell), buy: Number(data[key].buy) };
+    const sell = Number(data[key]?.sell);
+    const buy = Number(data[key]?.buy);
+    // A broken or placeholder response must not reach users, history or alerts.
+    if (isPlausible(sell) && isPlausible(buy)) rates[key] = { sell, buy };
   }
-  if (!rates.b) throw new Error('upstream missing Baghdad');
+  if (!rates.b) throw new Error('upstream returned no valid Baghdad price');
   return rates;
 }
+
+/** IQD per $1 has been ~1,300–1,700 for years; anything far outside is a source fault. */
+const isPlausible = n => Number.isFinite(n) && n >= 500 && n <= 5000;
 
 export const fmt = n => Number(n).toLocaleString('en-US', { maximumFractionDigits: 2 });
 

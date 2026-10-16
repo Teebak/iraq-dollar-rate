@@ -6,7 +6,10 @@ const HEARTBEAT_MS = 60 * 60_000;
 const KEEP_MS = 90 * 86_400_000;
 export const RANGE_DAYS = [1, 7, 30];
 
-/** Stores the current prices for each market that changed, or hasn't been recorded for an hour. */
+/**
+ * Stores the current prices for each market that changed, or hasn't been recorded for an hour.
+ * Returns true if any market's price changed since its last record.
+ */
 export async function recordHistory(env, rates, now = Date.now()) {
   const lastRows = await env.DB.batch(
     Object.keys(rates).map(market =>
@@ -14,15 +17,19 @@ export async function recordHistory(env, rates, now = Date.now()) {
     ),
   );
   const writes = [];
+  let changed = false;
   Object.entries(rates).forEach(([market, { sell, buy }], i) => {
     const last = lastRows[i].results[0];
-    if (!last || last.sell !== sell || last.buy !== buy || now - last.at >= HEARTBEAT_MS) {
+    const moved = !last || last.sell !== sell || last.buy !== buy;
+    if (moved) changed = true;
+    if (moved || now - last.at >= HEARTBEAT_MS) {
       writes.push(env.DB.prepare('INSERT OR IGNORE INTO price_history (market, at, sell, buy) VALUES (?, ?, ?, ?)')
         .bind(market, now, sell, buy));
     }
   });
   writes.push(env.DB.prepare('DELETE FROM price_history WHERE at < ?').bind(now - KEEP_MS));
   await env.DB.batch(writes);
+  return changed;
 }
 
 /**

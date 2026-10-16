@@ -37,6 +37,12 @@
     </div>
   </header>
 
+  @if (sourceStatus.downForMinutes(); as minutes) {
+    <p class="stale-banner" role="alert">⚠️ {{ t.sourceDown(minutes) }}</p>
+  } @else if (sourceStatus.showingStale()) {
+    <p class="stale-banner" role="alert">⚠️ {{ t.showingStale }}</p>
+  }
+
   @if (cards().length) {
     <section class="rail" #rail (scroll)="onRailScroll()" [attr.aria-label]="t.cityPicker">
       @for (card of cards(); track card.market.key; let i = $index) {

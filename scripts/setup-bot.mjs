@@ -10,6 +10,7 @@
 import { spawn } from 'node:child_process';
 import readline from 'node:readline';
 import { webhookSecret } from '../worker/telegram-secret.js';
+import { adminCode } from '../worker/monitor.js';
 
 const APP_ORIGIN = process.argv[2] ?? 'https://iraq-dollar-rate.launchpad-apps.workers.dev';
 
@@ -59,6 +60,7 @@ async function main() {
 
   console.log(`\nDone. Open https://t.me/${me.username} and press Start.`);
   console.log('For sharing from any chat, also send /setinline to @BotFather once (placeholder: اكتب مبلغًا أو اختر مدينة).');
+  console.log(`To get source-outage alerts, send this to your bot from your own account: /admin ${await adminCode(token)}`);
 }
 
 async function tg(token, method, body) {

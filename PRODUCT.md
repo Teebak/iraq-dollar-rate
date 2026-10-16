@@ -17,7 +17,8 @@ A Telegram Mini App that shows live buy/sell dollar prices for Baghdad, Erbil an
 - "Live" = polling every 15 s while visible.
 - Price history is recorded by the Worker's 5-minute cron into D1 (on change, at least hourly; kept 90 days) and shared by all users. It starts from when recording began, is not official history, and the app says when recording started.
 - Share rate to a Telegram chat via `t.me/share/url`.
-- Price alerts / push notifications are out of scope (would need a bot backend).
+- Price alerts (any city, sell or buy) are sent by the bot; set in the app or with /alert. A daily summary goes to /subscribe users.
+- Source health is monitored; when iraqborsa.com fails for 10+ minutes the app warns that prices may be stale, and the owner is messaged.
 - Arabic (RTL) is the default language; English is available.
 
 ## Brand Commitments

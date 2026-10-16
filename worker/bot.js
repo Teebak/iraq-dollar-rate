@@ -5,6 +5,7 @@ import { cityLines, fmt, getRates, todayInBaghdad } from './rates.js';
 import { isGone, openAppKeyboard, tg } from './telegram.js';
 import { yesterdaySell } from './history.js';
 import { handleInlineQuery } from './inline.js';
+import { adminCode, getAdmin, setAdmin, statusText } from './monitor.js';
 import { MAX_ALERTS, addAlert, alertLabel, deleteAlert, fireAlerts, listAlerts as alertsFor, normalizeTarget } from './alerts.js';
 
 const QUICK_STEPS = [5, 10];
@@ -31,6 +32,10 @@ export async function handleUpdate(update, env) {
     case '/alerts': return listAlerts(env, chatId);
     case '/subscribe': return subscribe(env, chatId);
     case '/unsubscribe': return unsubscribe(env, chatId);
+    case '/admin': return claimAdmin(env, chatId, args[0]);
+    case '/status':
+      if ((await getAdmin(env)) === chatId) return tg(env, 'sendMessage', { chat_id: chatId, text: await statusText(env) });
+      return sendRates(env, chatId);
     default: return sendRates(env, chatId);
   }
 }
@@ -150,6 +155,16 @@ async function alertsView(env, chatId) {
       }]),
     },
   };
+}
+
+/** "/admin <code>": the code comes from scripts/setup-bot.mjs and is derived from the bot token. */
+async function claimAdmin(env, chatId, code) {
+  if (!code || code !== (await adminCode(env.BOT_TOKEN))) return sendRates(env, chatId);
+  await setAdmin(env, chatId);
+  await tg(env, 'sendMessage', {
+    chat_id: chatId,
+    text: '✅ أنت المشرف الآن. ستصلك رسالة إذا تعطّل مصدر الأسعار أو توقفت الأسعار عن التغيّر.\nحالة المصدر في أي وقت: /status',
+  });
 }
 
 async function subscribe(env, chatId) {
