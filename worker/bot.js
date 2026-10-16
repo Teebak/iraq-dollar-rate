@@ -10,10 +10,8 @@ import { MAX_ALERTS, addAlert, alertLabel, deleteAlert, fireAlerts, listAlerts a
 
 const QUICK_STEPS = [5, 10];
 
-const HELP = [
-  '🔔 /alert — نبّهني عندما يصل سعر البيع في بغداد إلى سعر أختاره',
-  '🗓 /subscribe — ملخص يومي للأسعار الساعة 10 صباحًا',
-].join('\n');
+const APP_HOOKS = '📈 حركة السعر · 🧮 الحاسبة · 🔔 التنبيهات · أربيل والبصرة';
+const HELP = '🗓 /subscribe — ملخص يومي للأسعار الساعة 10 صباحًا';
 
 // ── Incoming updates ─────────────────────────────────────────
 
@@ -63,17 +61,28 @@ async function handleCallback(query, env) {
 
 // ── Commands ─────────────────────────────────────────────────
 
+/**
+ * Reply to /start and any other message: a quick Baghdad answer, plus what only the app has.
+ * Full city lists stay in the daily summary and inline cards, which are for sharing.
+ */
 async function sendRates(env, chatId) {
   let body;
   try {
     const rates = await getRates();
-    body = [...cityLines(rates), '', 'الأسعار بالدينار لكل 1 دولار.'].join('\n');
+    const { sell, buy } = rates.b;
+    const before = (await yesterdaySell(env)).b;
+    const delta = before == null ? '' : sell > before ? ` (▲ ${fmt(sell - before)} عن أمس)` : sell < before ? ` (▼ ${fmt(before - sell)} عن أمس)` : ' (ثابت عن أمس)';
+    body = [
+      '📍 بغداد الآن',
+      `بيع ${fmt(sell)}${delta} · شراء ${fmt(buy)}`,
+      `100$ = ${fmt(Math.round(sell * 100))} د.ع`,
+    ].join('\n');
   } catch {
-    body = 'تعذّر جلب الأسعار الآن.';
+    body = 'تعذّر جلب الأسعار الآن. افتح التطبيق للأسعار المباشرة.';
   }
   await tg(env, 'sendMessage', {
     chat_id: chatId,
-    text: ['شكد الدولار؟ 💵', '', body, '', HELP].join('\n'),
+    text: ['شكد الدولار؟ 💵', '', body, '', 'في التطبيق 👇', APP_HOOKS, '', HELP].join('\n'),
     reply_markup: openAppKeyboard(env.APP_URL),
   });
 }
