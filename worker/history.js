@@ -1,6 +1,6 @@
 // Shared price history in D1 (table price_history, see migrations/0004).
 
-import { CITIES } from './rates.js';
+import { CITIES, getRates } from './rates.js';
 
 const HEARTBEAT_MS = 60 * 60_000;
 const KEEP_MS = 90 * 86_400_000;
@@ -61,4 +61,37 @@ export async function yesterdaySell(env, now = Date.now()) {
     ),
   );
   return Object.fromEntries(CITIES.map(([market], i) => [market, rows[i].results[0]?.sell]));
+}
+
+/** The most recent recorded price for each market: { rates: { b: { sell, buy }, ... }, at } or null. */
+export async function lastKnownRates(env) {
+  const rows = await env.DB.batch(
+    CITIES.map(([market]) =>
+      env.DB.prepare('SELECT sell, buy, at FROM price_history WHERE market = ? ORDER BY at DESC LIMIT 1').bind(market),
+    ),
+  );
+  const rates = {};
+  let at = 0;
+  CITIES.forEach(([market], i) => {
+    const row = rows[i].results[0];
+    if (!row) return;
+    rates[market] = { sell: row.sell, buy: row.buy };
+    at = Math.max(at, row.at);
+  });
+  return rates.b ? { rates, at } : null;
+}
+
+/**
+ * Live rates when the source answers, otherwise the last recorded ones.
+ * Returns { rates, staleSince } where staleSince is null for live data, or when the fallback prices were recorded.
+ * Throws only if neither is available. For display only: alerts and history use live prices.
+ */
+export async function ratesOrLastKnown(env) {
+  try {
+    return { rates: await getRates(env.RATES_UPSTREAM), staleSince: null }; // override is test-only
+  } catch (err) {
+    const last = await lastKnownRates(env);
+    if (!last) throw err;
+    return { rates: last.rates, staleSince: last.at };
+  }
 }

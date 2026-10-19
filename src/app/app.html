@@ -16,7 +16,7 @@
     </div>
     <div class="topbar-actions">
       <button type="button" class="status glass" (click)="refresh()" [attr.aria-label]="t.refresh"
-              [class.error]="rates.error()" [class.loading]="rates.loading()">
+              [class.error]="rates.error()" [class.stale]="!!rates.staleSince()" [class.loading]="rates.loading()">
         @if (rates.loading()) {
           <app-icon name="refresh" class="status-icon" />
         } @else {
@@ -24,6 +24,9 @@
         }
         @if (rates.error()) {
           <span>{{ t.loadError }}</span>
+        } @else if (rates.staleSince(); as since) {
+          <span>{{ t.lastKnown }}</span>
+          <bdi class="num">{{ since | date: 'HH:mm' }}</bdi>
         } @else if (rates.lastUpdated()) {
           <span>{{ t.live }}</span>
           <bdi class="num">{{ rates.lastUpdated() | date: 'HH:mm:ss' }}</bdi>

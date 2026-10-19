@@ -3,6 +3,7 @@
 const UPSTREAM = 'https://iraqborsa.com/borsa-api/summary.php';
 /** Seconds Cloudflare may reuse an upstream response. The app polls every 15 s, so this is invisible to users but spares the source site. */
 const EDGE_CACHE_SECONDS = 10;
+const FETCH_TIMEOUT_MS = 8000;
 
 export const CITIES = [
   ['b', 'بغداد'],
@@ -14,6 +15,8 @@ export const CITIES = [
 export function fetchUpstream(url = UPSTREAM) {
   return fetch(url, {
     headers: { Accept: 'application/json' },
+    // Fail fast so callers can fall back to the last known prices instead of hanging.
+    signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
     cf: { cacheTtl: EDGE_CACHE_SECONDS, cacheEverything: true },
   });
 }
@@ -53,4 +56,12 @@ export function todayInBaghdad() {
   return new Intl.DateTimeFormat('ar-IQ-u-nu-latn', {
     weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Asia/Baghdad',
   }).format(new Date());
+}
+
+/** Shown under prices that came from history because the source isn't answering. */
+export function staleNote(at) {
+  const when = new Intl.DateTimeFormat('ar-IQ-u-nu-latn', {
+    day: 'numeric', month: 'long', hour: 'numeric', minute: '2-digit', timeZone: 'Asia/Baghdad',
+  }).format(at);
+  return `⚠️ مصدر الأسعار لا يستجيب الآن. هذه آخر أسعار مسجّلة (${when}).`;
 }

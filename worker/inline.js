@@ -1,7 +1,8 @@
 // Inline mode: typing "@ShkadDollarBot" (optionally followed by an amount) in any chat offers ready rate cards.
 // Inline mode must be switched on once in @BotFather with /setinline.
 
-import { CITIES, cityLines, fmt, getRates } from './rates.js';
+import { CITIES, cityLines, fmt, staleNote } from './rates.js';
+import { ratesOrLastKnown } from './history.js';
 import { tg } from './telegram.js';
 
 const MINI_APP_LINK = 'https://t.me/ShkadDollarBot/rates';
@@ -9,21 +10,23 @@ const PHOTOS = { b: 'baghdad', n: 'erbil', s: 'basra' };
 
 export async function handleInlineQuery(query, env) {
   let rates;
+  let staleSince = null;
   try {
-    rates = await getRates();
+    ({ rates, staleSince } = await ratesOrLastKnown(env));
   } catch {
     return tg(env, 'answerInlineQuery', { inline_query_id: query.id, results: [], cache_time: 10 });
   }
 
   const origin = new URL(env.APP_URL).origin;
   const button = { inline_keyboard: [[{ text: 'افتح الأسعار 💵', url: MINI_APP_LINK }]] };
+  const note = staleSince ? staleNote(staleSince) : '';
   const article = (id, title, description, text, photo) => ({
     type: 'article',
     id,
     title,
-    description,
+    description: note ? 'آخر سعر مسجّل — المصدر لا يستجيب الآن' : description,
     thumbnail_url: photo ? `${origin}/cities/${photo}.jpg` : undefined,
-    input_message_content: { message_text: text },
+    input_message_content: { message_text: note ? `${text}\n\n${note}` : text },
     reply_markup: button,
   });
 
@@ -53,7 +56,7 @@ export async function handleInlineQuery(query, env) {
       `💵 سعر الدولار في ${name}\nبيع: ${fmt(r.sell)} · شراء: ${fmt(r.buy)}\nلكل 100$: ${fmt(r.sell * 100)} د.ع`, PHOTOS[key]));
   }
 
-  await tg(env, 'answerInlineQuery', { inline_query_id: query.id, results, cache_time: 30, is_personal: false });
+  await tg(env, 'answerInlineQuery', { inline_query_id: query.id, results, cache_time: staleSince ? 10 : 30, is_personal: false });
 }
 
 function parseAmount(raw) {

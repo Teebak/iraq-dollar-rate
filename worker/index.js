@@ -12,7 +12,7 @@
 
 import { webhookSecret } from './telegram-secret.js';
 import { fetchUpstream, getRates } from './rates.js';
-import { RANGE_DAYS, getHistory, recordHistory } from './history.js';
+import { RANGE_DAYS, getHistory, lastKnownRates, recordHistory } from './history.js';
 import { checkAlerts, handleUpdate, sendDailySummary } from './bot.js';
 import { appApi } from './app-api.js';
 import { pruneCards, serveCard } from './cards.js';
@@ -23,7 +23,7 @@ const DAILY_CRON = '0 7 * * *';
 export default {
   async fetch(request, env, ctx) {
     const { pathname } = new URL(request.url);
-    if (pathname === '/borsa-api/summary.php') return proxyRates(request);
+    if (pathname === '/borsa-api/summary.php') return proxyRates(request, env);
     if (pathname === '/api/history') return historyApi(request, env);
     if (pathname === '/api/status') return json(await publicStatus(env), 200, 'public, max-age=60');
     if (pathname === '/api/alerts' || pathname.startsWith('/api/alerts/') || pathname === '/api/cards') {
@@ -60,24 +60,36 @@ async function runCron(cron, env) {
 
 // ── Rates proxy ──────────────────────────────────────────────
 
-async function proxyRates(request) {
+async function proxyRates(request, env) {
   if (request.method !== 'GET') {
     return new Response('Method not allowed', { status: 405, headers: { Allow: 'GET' } });
   }
   try {
-    const upstream = await fetchUpstream();
-    if (!upstream.ok) return json({ error: `upstream returned ${upstream.status}` }, 502);
+    const upstream = await fetchUpstream(env.RATES_UPSTREAM); // test-only override, unset in production
+    if (!upstream.ok) throw new Error(`upstream returned ${upstream.status}`);
     const body = await upstream.text();
     // Same plausibility rule as the cron (rates.js): never pass a broken Baghdad price to the app.
     const b = JSON.parse(body)?.b;
     if (!(Number(b?.sell) >= 500 && Number(b?.sell) <= 5000 && Number(b?.buy) >= 500 && Number(b?.buy) <= 5000)) {
-      return json({ error: 'upstream returned implausible prices' }, 502);
+      throw new Error('upstream returned implausible prices');
     }
     return new Response(body, {
       headers: { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' },
     });
-  } catch {
-    return json({ error: 'upstream unreachable' }, 502);
+  } catch (err) {
+    // Source down or blocking us: serve the last recorded prices in the same shape, marked as stale.
+    const last = await lastKnownRates(env);
+    if (!last) return json({ error: String(err.message ?? err) }, 502);
+    const body = Object.fromEntries(Object.entries(last.rates).map(([market, { sell, buy }]) => [market, {
+      sell: String(sell), buy: String(buy), psell: String(sell), pbuy: String(buy), sp: 0, bp: 0, sd: 0, bd: 0,
+    }]));
+    return new Response(JSON.stringify(body), {
+      headers: {
+        'Content-Type': 'application/json; charset=utf-8',
+        'Cache-Control': 'no-store',
+        'X-Rates-Stale-Since': String(last.at),
+      },
+    });
   }
 }
 

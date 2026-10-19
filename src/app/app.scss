@@ -121,6 +121,8 @@ h1, h2, h3, p {
 
   &.loading .status-icon { animation: spin 0.9s linear infinite; }
   &.error { background: rgb(255 120 120 / 16%); }
+  &.stale { background: rgb(255 196 120 / 14%); }
+  &.stale .pulse { background: #ffc478; animation: none; }
   &.error .pulse { background: var(--down); animation: none; }
 }
 

@@ -32,7 +32,7 @@ export class SourceStatusService {
   });
 
   /** The app's own fetches are failing while older prices are still on screen. */
-  readonly showingStale = computed(() => this.rates.error() && this.rates.markets().length > 0);
+  readonly showingStale = computed(() => (this.rates.error() || !!this.rates.staleSince()) && this.rates.markets().length > 0);
 
   constructor() {
     timer(0, REFRESH_MS).pipe(

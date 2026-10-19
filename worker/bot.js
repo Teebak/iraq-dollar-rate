@@ -1,9 +1,9 @@
 // @ShkadDollarBot: commands, alert shortcuts and the daily summary. Storage is the D1 database bound as env.DB.
 // /alert sets Baghdad sell alerts; the Mini App can set them for any city and side (worker/alerts.js).
 
-import { cityLines, fmt, getRates, todayInBaghdad } from './rates.js';
+import { cityLines, fmt, getRates, staleNote, todayInBaghdad } from './rates.js';
 import { isGone, openAppKeyboard, tg } from './telegram.js';
-import { yesterdaySell } from './history.js';
+import { ratesOrLastKnown, yesterdaySell } from './history.js';
 import { handleInlineQuery } from './inline.js';
 import { adminCode, getAdmin, setAdmin, statusText } from './monitor.js';
 import { MAX_ALERTS, addAlert, alertLabel, deleteAlert, fireAlerts, listAlerts as alertsFor, normalizeTarget } from './alerts.js';
@@ -68,13 +68,14 @@ async function handleCallback(query, env) {
 async function sendRates(env, chatId) {
   let body;
   try {
-    const rates = await getRates();
+    const { rates, staleSince } = await ratesOrLastKnown(env);
     const { sell, buy } = rates.b;
     const before = (await yesterdaySell(env)).b;
     const delta = before == null ? '' : sell > before ? ` (▲ ${fmt(sell - before)} عن أمس)` : sell < before ? ` (▼ ${fmt(before - sell)} عن أمس)` : ' (ثابت عن أمس)';
     body = [
-      '📍 بغداد الآن',
-      `بيع ${fmt(sell)}${delta} · شراء ${fmt(buy)}`,
+      staleSince ? '📍 بغداد' : '📍 بغداد الآن',
+      `بيع ${fmt(sell)}${staleSince ? '' : delta} · شراء ${fmt(buy)}`,
+      ...(staleSince ? ['', staleNote(staleSince)] : []),
     ].join('\n');
   } catch {
     body = 'تعذّر جلب الأسعار الآن. افتح التطبيق للأسعار المباشرة.';
@@ -198,9 +199,12 @@ export async function checkAlerts(env, rates) {
 
 /** Daily summary to every subscriber; drops users who blocked the bot. */
 export async function sendDailySummary(env) {
-  const rates = await getRates();
-  const yesterday = await yesterdaySell(env);
-  const text = ['🗓 ملخص اليوم — ' + todayInBaghdad(), '', ...cityLines(rates, yesterday), '', 'الأسعار بالدينار لكل 1 دولار.'].join('\n');
+  const { rates, staleSince } = await ratesOrLastKnown(env);
+  const yesterday = staleSince ? {} : await yesterdaySell(env);
+  const text = [
+    '🗓 ملخص اليوم — ' + todayInBaghdad(), '', ...cityLines(rates, yesterday), '', 'الأسعار بالدينار لكل 1 دولار.',
+    ...(staleSince ? ['', staleNote(staleSince)] : []),
+  ].join('\n');
   const { results } = await env.DB.prepare('SELECT chat_id FROM subscribers').all();
 
   // Telegram allows ~30 messages/second; stay well under it.

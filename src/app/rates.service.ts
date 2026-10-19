@@ -35,6 +35,8 @@ export class RatesService {
   readonly lastUpdated = signal<Date | null>(null);
   readonly loading = signal(false);
   readonly error = signal(false);
+  /** Set when the Worker served the last recorded prices because the source isn't answering. */
+  readonly staleSince = signal<Date | null>(null);
 
   constructor() {
     // Poll while the page is visible; refetch immediately when it becomes visible again.
@@ -49,7 +51,7 @@ export class RatesService {
     ).pipe(
       switchMap(() => {
         this.loading.set(true);
-        return this.http.get<Record<string, RawMarket>>(RATES_API_URL).pipe(
+        return this.http.get<Record<string, RawMarket>>(RATES_API_URL, { observe: 'response' }).pipe(
           catchError(() => {
             this.error.set(true);
             return of(null);
@@ -57,10 +59,13 @@ export class RatesService {
         );
       }),
       takeUntilDestroyed(this.destroyRef),
-    ).subscribe(data => {
+    ).subscribe(res => {
       this.loading.set(false);
+      const data = res?.body;
       if (!data) return;
       this.error.set(false);
+      const stale = Number(res.headers.get('X-Rates-Stale-Since'));
+      this.staleSince.set(stale ? new Date(stale) : null);
       this.markets.set(Object.entries(data).map(([key, m]) => toMarket(key, m)));
       this.lastUpdated.set(new Date());
     });
