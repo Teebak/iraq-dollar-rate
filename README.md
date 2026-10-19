@@ -19,6 +19,7 @@ Live: https://iraq-dollar-rate.launchpad-apps.workers.dev · Mini App: https://t
 | Monitoring | `worker/monitor.js` | Messages the admin when the source is down 15 min, recovers, or is unchanged 24 h; `/api/status` drives the app's warning. Claim admin with `/admin <code>` (printed by `npm run setup-bot`), check with `/status` |
 | Share cards | `src/app/rate-card.ts`, `worker/cards.js` | Rate image drawn on the device, shared via Telegram's share sheet |
 | Database | Cloudflare D1, schema in `migrations/` | Alerts, subscribers, de-duplication of Telegram updates |
+| Fetch job | `.github/workflows/fetch-rates.yml` | Every 5 min, fetches iraqborsa.com from GitHub's network and POSTs it to `/api/ingest` (secret `INGEST_KEY` in both GitHub and the Worker), because Cloudflare can't currently reach iraqborsa's origin |
 | Bot setup | `scripts/setup-bot.mjs` | Stores the bot token as a Worker secret, sets webhook, menu, descriptions, commands |
 
 Design notes: `DESIGN.md`. Product notes: `PRODUCT.md`.

@@ -1,0 +1,32 @@
+# Fetches iraqborsa.com's rates from GitHub's network and hands them to the Cloudflare Worker.
+# Needed because Cloudflare's servers currently can't reach iraqborsa.com's origin (522/525),
+# while ordinary networks can. The Worker keeps trying directly every 5 minutes as well.
+name: Fetch rates
+
+on:
+  schedule:
+    - cron: '*/5 * * * *'
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: fetch-rates
+  cancel-in-progress: false
+
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Fetch rates and send them to the Worker
+        env:
+          INGEST_KEY: ${{ secrets.INGEST_KEY }}
+        run: |
+          set -euo pipefail
+          body="$(curl -fsS --max-time 20 --retry 2 https://iraqborsa.com/borsa-api/summary.php)"
+          curl -fsS --max-time 20 -X POST \
+            -H "Authorization: Bearer ${INGEST_KEY}" \
+            -H "Content-Type: application/json" \
+            --data "${body}" \
+            https://iraq-dollar-rate.launchpad-apps.workers.dev/api/ingest

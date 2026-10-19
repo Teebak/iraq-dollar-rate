@@ -5,13 +5,14 @@
 // /borsa-api/summary.php  the app's rates: the cron's saved copy of iraqborsa.com's response (only the cron calls the source).
 // /api/cards, /cards/*   rate-card images drawn by the app and shared via Telegram, see cards.js.
 // /api/alerts            the signed-in user's price alerts (Mini App; auth by Telegram initData), see app-api.js.
+// /api/ingest            prices fetched outside Cloudflare by GitHub Actions (INGEST_KEY secret), see ingest().
 // /api/status            price-source health for the app's stale-data warning (see monitor.js).
 // /api/history           shared price history for the app's chart (recorded by the cron, stored in D1).
 // /telegram/webhook       receives bot updates (set up with scripts/setup-bot.mjs). Needs the BOT_TOKEN secret.
 // scheduled()             checks price alerts every 5 minutes and sends the 10:00 daily summary (see wrangler.jsonc).
 
 import { webhookSecret } from './telegram-secret.js';
-import { fetchSummary } from './rates.js';
+import { fetchSummary, parseRates } from './rates.js';
 import { RANGE_DAYS, getHistory, loadSummary, recordHistory, saveSummary, storedRates } from './history.js';
 import { checkAlerts, handleUpdate, sendDailySummary } from './bot.js';
 import { appApi } from './app-api.js';
@@ -19,12 +20,15 @@ import { pruneCards, serveCard } from './cards.js';
 import { publicStatus, sourceFailed, sourceOk } from './monitor.js';
 
 const DAILY_CRON = '0 7 * * *';
+/** If ingest delivered prices this recently, a failed direct fetch isn't reported as an outage. */
+const INGEST_GRACE_MS = 12 * 60_000;
 
 export default {
   async fetch(request, env, ctx) {
     const { pathname } = new URL(request.url);
     if (pathname === '/borsa-api/summary.php') return proxyRates(request, env);
     if (pathname === '/api/history') return historyApi(request, env);
+    if (pathname === '/api/ingest') return ingest(request, env);
     if (pathname === '/api/status') return json(await publicStatus(env), 200, 'public, max-age=60');
     if (pathname === '/api/alerts' || pathname.startsWith('/api/alerts/') || pathname === '/api/cards') {
       return appApi(request, env, pathname);
@@ -45,20 +49,53 @@ async function runCron(cron, env) {
     if (env.BOT_TOKEN) await sendDailySummary(env);
     return;
   }
-  // Every 5 minutes: check the source, record history (also without a bot), then fire any price alerts.
-  // This is the only place that contacts the source; everything else reads the saved copy.
-  let rates;
+  // Every 5 minutes: try the source directly. The GitHub Actions job (.github/workflows/fetch-rates.yml) also
+  // delivers prices via /api/ingest, because Cloudflare can't currently reach iraqborsa.com's server.
+  let fetched;
   try {
-    let raw;
-    ({ rates, raw } = await fetchSummary(env.RATES_UPSTREAM)); // override is test-only, unset in production
-    await saveSummary(env, raw);
+    fetched = await fetchSummary(env.RATES_UPSTREAM); // override is test-only, unset in production
   } catch (err) {
-    await sourceFailed(env, err);
+    // Only a failure if the other route hasn't delivered fresh prices either.
+    const summary = await loadSummary(env);
+    if (!summary || Date.now() - summary.at > INGEST_GRACE_MS) await sourceFailed(env, err);
     return;
   }
+  await processSummary(env, fetched.rates, fetched.raw);
+}
+
+/** Shared by the cron and /api/ingest: save the copy, record history and health, fire alerts. */
+async function processSummary(env, rates, raw) {
+  await saveSummary(env, raw);
   await sourceOk(env, await recordHistory(env, rates));
   await pruneCards(env);
   if (env.BOT_TOKEN) await checkAlerts(env, rates);
+}
+
+// ── Ingest (prices fetched from outside Cloudflare) ──────────
+
+/** POST /api/ingest with the source's JSON as the body and "Authorization: Bearer <INGEST_KEY>". */
+async function ingest(request, env) {
+  if (request.method !== 'POST') return new Response('Method not allowed', { status: 405, headers: { Allow: 'POST' } });
+  const key = (request.headers.get('Authorization') ?? '').replace(/^Bearer /, '');
+  if (!env.INGEST_KEY || !timingSafeEqual(key, env.INGEST_KEY)) return json({ error: 'unauthorized' }, 401);
+
+  const raw = await request.text();
+  if (raw.length > 20_000) return json({ error: 'too_large' }, 413);
+  let rates;
+  try {
+    rates = parseRates(JSON.parse(raw)); // same plausibility rules as a direct fetch
+  } catch (err) {
+    return json({ error: String(err.message ?? err) }, 400);
+  }
+  await processSummary(env, rates, raw);
+  return json({ ok: true, markets: Object.keys(rates) }, 200);
+}
+
+function timingSafeEqual(a, b) {
+  if (a.length !== b.length) return false;
+  let diff = 0;
+  for (let i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  return diff === 0;
 }
 
 // ── Rates proxy ──────────────────────────────────────────────
