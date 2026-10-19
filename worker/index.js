@@ -2,7 +2,7 @@
 // Static files (the Angular build) are served by Workers Static Assets before this code runs;
 // only requests that don't match a file reach fetch() below.
 //
-// /borsa-api/summary.php  proxies iraqborsa.com from the app's own origin (the API sends no CORS headers).
+// /borsa-api/summary.php  the app's rates: the cron's saved copy of iraqborsa.com's response (only the cron calls the source).
 // /api/cards, /cards/*   rate-card images drawn by the app and shared via Telegram, see cards.js.
 // /api/alerts            the signed-in user's price alerts (Mini App; auth by Telegram initData), see app-api.js.
 // /api/status            price-source health for the app's stale-data warning (see monitor.js).
@@ -11,8 +11,8 @@
 // scheduled()             checks price alerts every 5 minutes and sends the 10:00 daily summary (see wrangler.jsonc).
 
 import { webhookSecret } from './telegram-secret.js';
-import { fetchUpstream, getRates } from './rates.js';
-import { RANGE_DAYS, getHistory, lastKnownRates, recordHistory } from './history.js';
+import { fetchSummary } from './rates.js';
+import { RANGE_DAYS, getHistory, loadSummary, recordHistory, saveSummary, storedRates } from './history.js';
 import { checkAlerts, handleUpdate, sendDailySummary } from './bot.js';
 import { appApi } from './app-api.js';
 import { pruneCards, serveCard } from './cards.js';
@@ -46,9 +46,12 @@ async function runCron(cron, env) {
     return;
   }
   // Every 5 minutes: check the source, record history (also without a bot), then fire any price alerts.
+  // This is the only place that contacts the source; everything else reads the saved copy.
   let rates;
   try {
-    rates = await getRates(env.RATES_UPSTREAM); // unset in production; lets local tests simulate an outage
+    let raw;
+    ({ rates, raw } = await fetchSummary(env.RATES_UPSTREAM)); // override is test-only, unset in production
+    await saveSummary(env, raw);
   } catch (err) {
     await sourceFailed(env, err);
     return;
@@ -60,36 +63,25 @@ async function runCron(cron, env) {
 
 // ── Rates proxy ──────────────────────────────────────────────
 
+/** The app's rates endpoint: the cron's saved copy of the source response, never a live call to the source. */
 async function proxyRates(request, env) {
   if (request.method !== 'GET') {
     return new Response('Method not allowed', { status: 405, headers: { Allow: 'GET' } });
   }
+  const headers = { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' };
   try {
-    const upstream = await fetchUpstream(env.RATES_UPSTREAM); // test-only override, unset in production
-    if (!upstream.ok) throw new Error(`upstream returned ${upstream.status}`);
-    const body = await upstream.text();
-    // Same plausibility rule as the cron (rates.js): never pass a broken Baghdad price to the app.
-    const b = JSON.parse(body)?.b;
-    if (!(Number(b?.sell) >= 500 && Number(b?.sell) <= 5000 && Number(b?.buy) >= 500 && Number(b?.buy) <= 5000)) {
-      throw new Error('upstream returned implausible prices');
-    }
-    return new Response(body, {
-      headers: { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' },
-    });
+    const { rates, at, staleSince } = await storedRates(env);
+    const summary = await loadSummary(env);
+    // Prefer the source's own JSON (it carries previous prices); otherwise build the same shape from history.
+    const body = summary && summary.at === at
+      ? summary.raw
+      : JSON.stringify(Object.fromEntries(Object.entries(rates).map(([market, { sell, buy }]) => [market, {
+          sell: String(sell), buy: String(buy), psell: String(sell), pbuy: String(buy), sp: 0, bp: 0, sd: 0, bd: 0,
+        }])));
+    if (staleSince) headers['X-Rates-Stale-Since'] = String(staleSince);
+    return new Response(body, { headers });
   } catch (err) {
-    // Source down or blocking us: serve the last recorded prices in the same shape, marked as stale.
-    const last = await lastKnownRates(env);
-    if (!last) return json({ error: String(err.message ?? err) }, 502);
-    const body = Object.fromEntries(Object.entries(last.rates).map(([market, { sell, buy }]) => [market, {
-      sell: String(sell), buy: String(buy), psell: String(sell), pbuy: String(buy), sp: 0, bp: 0, sd: 0, bd: 0,
-    }]));
-    return new Response(JSON.stringify(body), {
-      headers: {
-        'Content-Type': 'application/json; charset=utf-8',
-        'Cache-Control': 'no-store',
-        'X-Rates-Stale-Since': String(last.at),
-      },
-    });
+    return json({ error: String(err.message ?? err) }, 503);
   }
 }
 

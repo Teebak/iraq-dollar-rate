@@ -21,15 +21,23 @@ export function fetchUpstream(url = UPSTREAM) {
   });
 }
 
-/** Parsed rates keyed by market ('b', 'n', 's'), each { sell, buy } per $1. Throws if unavailable. */
-export async function getRates(url) {
+/**
+ * Fetches the source once: { rates, raw }. `raw` is the source's JSON text, saved as-is so the app keeps its
+ * fields (previous price, change). Throws if unavailable or implausible. Only the 5-minute cron calls this.
+ */
+export async function fetchSummary(url) {
   const res = await fetchUpstream(url);
   if (!res.ok) throw new Error(`upstream returned ${res.status}`);
-  const data = await res.json();
+  const raw = await res.text();
+  return { rates: parseRates(JSON.parse(raw)), raw };
+}
+
+/** Rates keyed by market ('b', 'n', 's'), each { sell, buy } per $1, from the source's JSON. Throws if Baghdad is missing. */
+export function parseRates(data) {
   const rates = {};
   for (const [key] of CITIES) {
-    const sell = Number(data[key]?.sell);
-    const buy = Number(data[key]?.buy);
+    const sell = Number(data?.[key]?.sell);
+    const buy = Number(data?.[key]?.buy);
     // A broken or placeholder response must not reach users, history or alerts.
     if (isPlausible(sell) && isPlausible(buy)) rates[key] = { sell, buy };
   }

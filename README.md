@@ -11,7 +11,7 @@ Live: https://iraq-dollar-rate.launchpad-apps.workers.dev · Mini App: https://t
 | Part | Where | What it does |
 |---|---|---|
 | Mini App | `src/` (Angular 20) | City cards, converter, trend chart, share button |
-| Worker | `worker/` (Cloudflare) | Serves the app, proxies the rates API (no CORS upstream), handles the bot webhook |
+| Worker | `worker/` (Cloudflare) | Serves the app and its rates endpoint, handles the bot webhook. Only the 5-minute cron contacts iraqborsa.com; its response is saved in D1 and everything else (app, bot, inline, alerts) reads that copy |
 | Bot | `worker/bot.js`, `worker/inline.js` | Commands, inline mode (`@ShkadDollarBot` in any chat) |
 | Alerts | `worker/alerts.js`, `worker/app-api.js` | Price alerts for any city/side; app API authenticated by Telegram initData |
 | History | `worker/history.js` | Shared price history, `/api/history` |

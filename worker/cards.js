@@ -5,7 +5,8 @@
 // deleted) so the shared message carries a native Telegram photo. Sharing it by URL instead made Telegram's
 // phone apps show it half gray. The URL form is kept only as a fallback.
 
-import { CITIES, fmt, getRates } from './rates.js';
+import { CITIES, fmt } from './rates.js';
+import { storedRates } from './history.js';
 import { tg, tgUpload } from './telegram.js';
 
 const MAX_BYTES = 1_500_000;
@@ -31,7 +32,7 @@ export async function createCard(request, env, userId) {
   // The caption is built here from live rates, never taken from the client.
   let caption = `💵 سعر الدولار في ${city[1]}`;
   try {
-    const r = (await getRates())[market];
+    const r = (await storedRates(env)).rates[market];
     if (r) caption += `\nبيع ${fmt(r.sell)} · شراء ${fmt(r.buy)} (لكل 1$)`;
   } catch { /* image alone is fine */ }
 

@@ -1,6 +1,6 @@
 // Shared price history in D1 (table price_history, see migrations/0004).
 
-import { CITIES, getRates } from './rates.js';
+import { CITIES, parseRates } from './rates.js';
 
 const HEARTBEAT_MS = 60 * 60_000;
 const KEEP_MS = 90 * 86_400_000;
@@ -81,17 +81,34 @@ export async function lastKnownRates(env) {
   return rates.b ? { rates, at } : null;
 }
 
+/** A saved copy older than this is shown as "last known" (two missed 5-minute runs plus slack). */
+const FRESH_MS = 12 * 60_000;
+
+/** Called by the cron after each successful fetch: the one copy everything else reads. */
+export async function saveSummary(env, raw, at = Date.now()) {
+  await env.DB.prepare("INSERT INTO settings (key, value) VALUES ('last_summary', ?) ON CONFLICT (key) DO UPDATE SET value = excluded.value")
+    .bind(JSON.stringify({ at, raw })).run();
+}
+
+/** The last saved source response: { data, at } or null. */
+export async function loadSummary(env) {
+  const row = await env.DB.prepare("SELECT value FROM settings WHERE key = 'last_summary'").first();
+  if (!row) return null;
+  const { at, raw } = JSON.parse(row.value);
+  return { data: JSON.parse(raw), raw, at };
+}
+
 /**
- * Live rates when the source answers, otherwise the last recorded ones.
- * Returns { rates, staleSince } where staleSince is null for live data, or when the fallback prices were recorded.
- * Throws only if neither is available. For display only: alerts and history use live prices.
+ * Rates for display, from our saved copy only (never contacts the source).
+ * Returns { rates, at, staleSince } with staleSince null while the copy is fresh, otherwise when it was saved.
+ * Falls back to the newest history rows; throws only if nothing has ever been saved.
  */
-export async function ratesOrLastKnown(env) {
-  try {
-    return { rates: await getRates(env.RATES_UPSTREAM), staleSince: null }; // override is test-only
-  } catch (err) {
-    const last = await lastKnownRates(env);
-    if (!last) throw err;
-    return { rates: last.rates, staleSince: last.at };
+export async function storedRates(env, now = Date.now()) {
+  const summary = await loadSummary(env);
+  if (summary) {
+    return { rates: parseRates(summary.data), at: summary.at, staleSince: now - summary.at > FRESH_MS ? summary.at : null };
   }
+  const last = await lastKnownRates(env);
+  if (!last) throw new Error('no prices recorded yet');
+  return { rates: last.rates, at: last.at, staleSince: now - last.at > FRESH_MS ? last.at : null };
 }

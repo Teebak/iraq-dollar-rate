@@ -1,9 +1,9 @@
 // @ShkadDollarBot: commands, alert shortcuts and the daily summary. Storage is the D1 database bound as env.DB.
 // /alert sets Baghdad sell alerts; the Mini App can set them for any city and side (worker/alerts.js).
 
-import { cityLines, fmt, getRates, staleNote, todayInBaghdad } from './rates.js';
+import { cityLines, fmt, staleNote, todayInBaghdad } from './rates.js';
 import { isGone, openAppKeyboard, tg } from './telegram.js';
-import { ratesOrLastKnown, yesterdaySell } from './history.js';
+import { storedRates, yesterdaySell } from './history.js';
 import { handleInlineQuery } from './inline.js';
 import { adminCode, getAdmin, setAdmin, statusText } from './monitor.js';
 import { MAX_ALERTS, addAlert, alertLabel, deleteAlert, fireAlerts, listAlerts as alertsFor, normalizeTarget } from './alerts.js';
@@ -68,7 +68,7 @@ async function handleCallback(query, env) {
 async function sendRates(env, chatId) {
   let body;
   try {
-    const { rates, staleSince } = await ratesOrLastKnown(env);
+    const { rates, staleSince } = await storedRates(env);
     const { sell, buy } = rates.b;
     const before = (await yesterdaySell(env)).b;
     const delta = before == null ? '' : sell > before ? ` (▲ ${fmt(sell - before)} عن أمس)` : sell < before ? ` (▼ ${fmt(before - sell)} عن أمس)` : ' (ثابت عن أمس)';
@@ -90,7 +90,7 @@ async function sendRates(env, chatId) {
 async function alertMenu(env, chatId) {
   let current;
   try {
-    current = (await getRates()).b.sell;
+    current = (await storedRates(env)).rates.b.sell;
   } catch {
     return tg(env, 'sendMessage', { chat_id: chatId, text: 'تعذّر جلب السعر الآن، حاول بعد قليل.' });
   }
@@ -124,7 +124,7 @@ async function alertReply(env, chatId, raw) {
 
   let rates;
   try {
-    rates = await getRates();
+    ({ rates } = await storedRates(env));
   } catch {
     return 'تعذّر جلب السعر الآن، حاول بعد قليل.';
   }
@@ -199,7 +199,7 @@ export async function checkAlerts(env, rates) {
 
 /** Daily summary to every subscriber; drops users who blocked the bot. */
 export async function sendDailySummary(env) {
-  const { rates, staleSince } = await ratesOrLastKnown(env);
+  const { rates, staleSince } = await storedRates(env);
   const yesterday = staleSince ? {} : await yesterdaySell(env);
   const text = [
     '🗓 ملخص اليوم — ' + todayInBaghdad(), '', ...cityLines(rates, yesterday), '', 'الأسعار بالدينار لكل 1 دولار.',

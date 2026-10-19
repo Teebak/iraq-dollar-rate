@@ -7,7 +7,7 @@
 //   POST   /api/cards?market= JPEG body → 201 { preparedId, url }   (see cards.js)
 
 import { MAX_ALERTS, addAlert, deleteAlert, listAlerts } from './alerts.js';
-import { getRates } from './rates.js';
+import { storedRates } from './history.js';
 import { createCard } from './cards.js';
 
 const MAX_AUTH_AGE_S = 24 * 60 * 60;
@@ -34,7 +34,7 @@ export async function appApi(request, env, pathname) {
     }
     let rates;
     try {
-      rates = await getRates();
+      ({ rates } = await storedRates(env));
     } catch {
       return json({ error: 'rates_unavailable' }, 503);
     }

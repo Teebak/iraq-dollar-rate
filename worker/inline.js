@@ -2,7 +2,7 @@
 // Inline mode must be switched on once in @BotFather with /setinline.
 
 import { CITIES, cityLines, fmt, staleNote } from './rates.js';
-import { ratesOrLastKnown } from './history.js';
+import { storedRates } from './history.js';
 import { tg } from './telegram.js';
 
 const MINI_APP_LINK = 'https://t.me/ShkadDollarBot/rates';
@@ -12,7 +12,7 @@ export async function handleInlineQuery(query, env) {
   let rates;
   let staleSince = null;
   try {
-    ({ rates, staleSince } = await ratesOrLastKnown(env));
+    ({ rates, staleSince } = await storedRates(env));
   } catch {
     return tg(env, 'answerInlineQuery', { inline_query_id: query.id, results: [], cache_time: 10 });
   }
