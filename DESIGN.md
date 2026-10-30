@@ -47,7 +47,7 @@ Cards and panels use a 16px radius, the quote panel 14px, and controls 12px (seg
 - **Reduced motion**: when the device asks for it, all of the above collapses to 1ms.
 
 ## Footer
-A public-prices disclaimer (information only, not an offer or financial advice, shop prices may differ) above the source links (iraqborsa.com; IQWealth for the official rate and gold), all 11px `--text-2`.
+Only a public-prices disclaimer (information only, not an offer or financial advice, shop prices may differ), 11px `--text-2`. IQWealth is credited in the gold panel's note (gold and official rate) and the chart note.
 
 ## Telegram integration
 - Sharing draws a 1080×1080 rate card on the device (`src/app/rate-card.ts`: city photo under an ink fade, brand and date, city name 120/700, sell | buy at 128/700 with tint labels and the 100 USD line, `@ShkadDollarBot` footer) and opens Telegram's share sheet (`shareMessage`, Bot API 8.0+), falling back to the device share sheet, then a text share. The button is the app's own fixed bottom button (`--tint` fill, share icon, 52px, 14px radius) over an ink fade, because Telegram's native main button can't show an icon.
