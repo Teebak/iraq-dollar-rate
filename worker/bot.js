@@ -37,6 +37,9 @@ export async function handleUpdate(update, env) {
     case '/channel':
       if ((await getAdmin(env)) === chatId) return tg(env, 'sendMessage', { chat_id: chatId, text: await linkChannel(env, args[0]) });
       return sendRates(env, chatId);
+    case '/broadcast':
+      if ((await getAdmin(env)) === chatId) return prepareBroadcast(env, message);
+      return sendRates(env, chatId);
     case '/status':
       if ((await getAdmin(env)) === chatId) return tg(env, 'sendMessage', { chat_id: chatId, text: await statusText(env) });
       return sendRates(env, chatId);
@@ -55,6 +58,8 @@ async function handleCallback(query, env) {
     if (chatId && kind === 'a') {
       const reply = await alertReply(env, chatId, value);
       await tg(env, 'editMessageText', { chat_id: chatId, message_id: messageId, text: reply });
+    } else if (chatId && kind === 'bc' && (await getAdmin(env)) === chatId) {
+      toast = await confirmBroadcast(env, chatId, messageId, value === 'send');
     } else if (chatId && kind === 'd') {
       toast = (await deleteAlert(env, chatId, value)) ? 'تم حذف التنبيه' : 'هذا التنبيه غير موجود';
       const { text, reply_markup } = await alertsView(env, chatId);
@@ -215,6 +220,88 @@ async function unsubscribe(env, chatId) {
   await tg(env, 'sendMessage', { chat_id: chatId, text: 'تم إلغاء الاشتراك في الملخص اليومي.' });
 }
 
+// ── Broadcast (admin only) ───────────────────────────────────
+// "/broadcast <text>" sends that text (line breaks kept); replying "/broadcast" to any message copies that message
+// instead, so formatting, photos and links survive. Either way the admin sees a preview and confirms first.
+
+async function prepareBroadcast(env, message) {
+  const chatId = message.chat.id;
+  const text = message.text.replace(/^\/broadcast(@\w+)?/i, '').trim();
+  const reply = message.reply_to_message;
+  if (!text && !reply) {
+    return tg(env, 'sendMessage', {
+      chat_id: chatId,
+      text: 'اكتب الرسالة بعد الأمر:\n/broadcast نص الرسالة\n\nأو ردّ على أي رسالة بـ /broadcast لإرسالها كما هي (مع التنسيق والصور).',
+    });
+  }
+  const pending = reply ? { from_chat_id: chatId, message_id: reply.message_id } : { text };
+  await env.DB.prepare("INSERT INTO settings (key, value) VALUES ('broadcast_pending', ?) ON CONFLICT (key) DO UPDATE SET value = excluded.value")
+    .bind(JSON.stringify(pending)).run();
+
+  const { count } = await env.DB.prepare('SELECT COUNT(*) AS count FROM subscribers').first();
+  await deliver(env, chatId, pending); // the preview, exactly as subscribers will get it
+  await tg(env, 'sendMessage', {
+    chat_id: chatId,
+    text: `👆 هذه معاينة. سترسل إلى ${count} مشترك في الملخص اليومي.`,
+    reply_markup: { inline_keyboard: [[{ text: '✅ إرسال', callback_data: 'bc:send' }, { text: '✖️ إلغاء', callback_data: 'bc:cancel' }]] },
+  });
+}
+
+/** Handles the preview's buttons. The pending message is removed first, so a double tap can't send it twice. */
+async function confirmBroadcast(env, chatId, messageId, send) {
+  const row = await env.DB.prepare("DELETE FROM settings WHERE key = 'broadcast_pending' RETURNING value").first();
+  if (!row) {
+    await tg(env, 'editMessageText', { chat_id: chatId, message_id: messageId, text: 'لا توجد رسالة بانتظار الإرسال.' });
+    return '';
+  }
+  if (!send) {
+    await tg(env, 'editMessageText', { chat_id: chatId, message_id: messageId, text: '✖️ أُلغي الإرسال.' });
+    return 'أُلغي';
+  }
+  await tg(env, 'editMessageText', { chat_id: chatId, message_id: messageId, text: '⏳ جارٍ الإرسال…' });
+  const pending = JSON.parse(row.value);
+  const { sent, gone, failed } = await toSubscribers(env, id => deliver(env, id, pending));
+  await tg(env, 'editMessageText', {
+    chat_id: chatId,
+    message_id: messageId,
+    text: [`✅ أُرسلت إلى ${sent} مشترك.`, ...(gone ? [`🚫 ${gone} حظروا البوت وحُذفوا من القائمة.`] : []), ...(failed ? [`⚠️ ${failed} فشل إرسالها.`] : [])].join('\n'),
+  });
+  return 'تم';
+}
+
+function deliver(env, chatId, pending) {
+  return pending.text
+    ? tg(env, 'sendMessage', { chat_id: chatId, text: pending.text, reply_markup: openAppKeyboard(env.APP_URL) })
+    : tg(env, 'copyMessage', { chat_id: chatId, from_chat_id: pending.from_chat_id, message_id: pending.message_id, reply_markup: openAppKeyboard(env.APP_URL) });
+}
+
+/**
+ * Runs `send(chatId)` for every daily-summary subscriber, 20 at a time with a pause between batches
+ * (Telegram allows ~30 messages/second). Users who blocked the bot are removed.
+ */
+async function toSubscribers(env, send) {
+  const { results } = await env.DB.prepare('SELECT chat_id FROM subscribers').all();
+  let sent = 0, gone = 0, failed = 0;
+  for (let i = 0; i < results.length; i += 20) {
+    await Promise.all(results.slice(i, i + 20).map(async ({ chat_id }) => {
+      try {
+        await send(chat_id);
+        sent++;
+      } catch (err) {
+        if (isGone(err)) {
+          gone++;
+          await env.DB.prepare('DELETE FROM subscribers WHERE chat_id = ?').bind(chat_id).run();
+        } else {
+          failed++;
+          console.error('send failed', chat_id, err.message);
+        }
+      }
+    }));
+    if (i + 20 < results.length) await new Promise(r => setTimeout(r, 1000));
+  }
+  return { sent, gone, failed, total: results.length };
+}
+
 // ── Scheduled jobs ───────────────────────────────────────────
 
 /** Every 5 minutes: housekeeping, then fire any alerts whose target has been reached. */
@@ -246,21 +333,8 @@ export async function sendDailySummary(env) {
     ...(staleSince ? ['', staleNote(staleSince)] : []),
   ].join('\n');
   await postToChannel(env, text);
-  const { results } = await env.DB.prepare('SELECT chat_id FROM subscribers').all();
-
-  // Telegram allows ~30 messages/second; stay well under it.
-  for (let i = 0; i < results.length; i += 20) {
-    await Promise.all(results.slice(i, i + 20).map(async ({ chat_id }) => {
-      try {
-        await tg(env, 'sendMessage', { chat_id, text, reply_markup: openAppKeyboard(env.APP_URL) });
-      } catch (err) {
-        if (isGone(err)) await env.DB.prepare('DELETE FROM subscribers WHERE chat_id = ?').bind(chat_id).run();
-        else console.error('summary send failed', chat_id, err.message);
-      }
-    }));
-    if (i + 20 < results.length) await new Promise(r => setTimeout(r, 1000));
-  }
-  return results.length;
+  const { total } = await toSubscribers(env, chat_id => tg(env, 'sendMessage', { chat_id, text, reply_markup: openAppKeyboard(env.APP_URL) }));
+  return total;
 }
 
 // ── Helpers ──────────────────────────────────────────────────

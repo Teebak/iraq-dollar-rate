@@ -1,0 +1,34 @@
+<!doctype html>
+<!--
+  Bot / app logo, 1024×1024, flat: two overlapping coins, dinar (white) and dollar (Baghdad teal), cut apart by a ring in
+  the background colour. Solid shapes only, in the app's palette (slate background #1e2a36, ink #0b0f14 for the symbols, teal #7fd0de, white). Telegram crops profile pictures to
+  a circle, so everything sits inside it. To render (from this folder):
+  "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" --headless=new --hide-scrollbars \
+    --window-size=1024,1024 --virtual-time-budget=6000 \
+    --screenshot="$PWD/logo.png" "file://$PWD/logo.html"
+  sips -z 512 512 logo.png --out logo-512.png
+-->
+<html lang="ar">
+<head>
+<meta charset="utf-8">
+<link href="https://fonts.googleapis.com/css2?family=Readex+Pro:wght@700&display=block" rel="stylesheet">
+<style>
+  html, body { margin: 0; }
+  body { width: 1024px; height: 1024px; overflow: hidden; }
+  svg { display: block; width: 1024px; height: 1024px; }
+  text { font-family: 'Readex Pro', sans-serif; font-weight: 700; }
+</style>
+</head>
+<body>
+<svg viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg">
+  <g>
+    <rect width="1024" height="1024" fill="#1e2a36" />
+    <circle cx="400" cy="420" r="200" fill="#ffffff" />
+    <circle cx="624" cy="604" r="232" fill="#1e2a36" />
+    <circle cx="624" cy="604" r="200" fill="#7fd0de" />
+    <text x="372" y="390" dy="0.36em" text-anchor="middle" direction="rtl" font-size="130" fill="#0b0f14">د.ع</text>
+    <text x="624" y="604" dy="0.36em" text-anchor="middle" font-size="250" fill="#0b0f14">$</text>
+  </g>
+</svg>
+</body>
+</html>
