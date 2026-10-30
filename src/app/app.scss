@@ -536,6 +536,46 @@ h1, h2, h3, p {
   color: var(--text-2);
 }
 
+// Stat tiles above the trend chart: sell price, per $1.
+.stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.stat {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: rgb(0 0 0 / 22%);
+  min-width: 0;
+}
+
+.stat-label {
+  font-size: 11.5px;
+  color: var(--text-2);
+}
+
+.stat-value {
+  font-size: 15px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+
+  &.up { color: var(--up); }
+  &.down { color: var(--down); }
+}
+
+.stat-note {
+  margin: 0 0 14px;
+
+  .up { color: var(--up); }
+  .down { color: var(--down); }
+}
+
 // Small range switch in the trend panel header.
 .range {
   display: flex;

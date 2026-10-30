@@ -7,17 +7,19 @@
 // /api/alerts            the signed-in user's price alerts (Mini App; auth by Telegram initData), see app-api.js.
 // /api/ingest            prices fetched outside Cloudflare by GitHub Actions (INGEST_KEY secret), see ingest().
 // /api/status            price-source health for the app's stale-data warning (see monitor.js).
+// /api/stats             today's high/low, 24 h change, 7-day average, biggest move, from history.
 // /api/history           shared price history for the app's chart (recorded by the cron, stored in D1).
 // /telegram/webhook       receives bot updates (set up with scripts/setup-bot.mjs). Needs the BOT_TOKEN secret.
 // scheduled()             checks price alerts every 5 minutes and sends the 10:00 daily summary (see wrangler.jsonc).
 
 import { webhookSecret } from './telegram-secret.js';
 import { fetchSummary, parseRates } from './rates.js';
-import { RANGE_DAYS, getHistory, loadSummary, recordHistory, saveSummary, storedRates } from './history.js';
+import { RANGE_DAYS, getHistory, getStats, loadSummary, recordHistory, saveSummary, storedRates } from './history.js';
 import { checkAlerts, handleUpdate, sendDailySummary } from './bot.js';
 import { appApi } from './app-api.js';
 import { pruneCards, serveCard } from './cards.js';
 import { publicStatus, sourceFailed, sourceOk } from './monitor.js';
+import { maybePostChange } from './channel.js';
 
 const DAILY_CRON = '0 7 * * *';
 /** If ingest delivered prices this recently, a failed direct fetch isn't reported as an outage. */
@@ -28,6 +30,7 @@ export default {
     const { pathname } = new URL(request.url);
     if (pathname === '/borsa-api/summary.php') return proxyRates(request, env);
     if (pathname === '/api/history') return historyApi(request, env);
+    if (pathname === '/api/stats') return statsApi(request, env);
     if (pathname === '/api/ingest') return ingest(request, env);
     if (pathname === '/api/status') return json(await publicStatus(env), 200, 'public, max-age=60');
     if (pathname === '/api/alerts' || pathname.startsWith('/api/alerts/') || pathname === '/api/cards') {
@@ -66,9 +69,12 @@ async function runCron(cron, env) {
 /** Shared by the cron and /api/ingest: save the copy, record history and health, fire alerts. */
 async function processSummary(env, rates, raw) {
   await saveSummary(env, raw);
-  await sourceOk(env, await recordHistory(env, rates));
+  const changed = await recordHistory(env, rates);
+  await sourceOk(env, changed);
   await pruneCards(env);
-  if (env.BOT_TOKEN) await checkAlerts(env, rates);
+  if (!env.BOT_TOKEN) return;
+  await checkAlerts(env, rates);
+  if (changed) await maybePostChange(env, rates).catch(err => console.error('channel post failed:', err.message));
 }
 
 // ── Ingest (prices fetched from outside Cloudflare) ──────────
@@ -120,6 +126,16 @@ async function proxyRates(request, env) {
   } catch (err) {
     return json({ error: String(err.message ?? err) }, 503);
   }
+}
+
+// ── Stats API ────────────────────────────────────────────────
+
+/** GET /api/stats?market=b → today's high/low, 24 h change, 7-day average, biggest move (see getStats). */
+async function statsApi(request, env) {
+  if (request.method !== 'GET') return new Response('Method not allowed', { status: 405, headers: { Allow: 'GET' } });
+  const market = new URL(request.url).searchParams.get('market') ?? 'b';
+  if (!['b', 'n', 's'].includes(market)) return json({ error: 'market must be b, n or s' }, 400);
+  return json(await getStats(env, market), 200, 'public, max-age=60');
 }
 
 // ── History API ──────────────────────────────────────────────

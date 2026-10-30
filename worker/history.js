@@ -112,3 +112,61 @@ export async function storedRates(env, now = Date.now()) {
   if (!last) throw new Error('no prices recorded yet');
   return { rates: last.rates, at: last.at, staleSince: now - last.at > FRESH_MS ? last.at : null };
 }
+
+const DAY_MS = 86_400_000;
+const BAGHDAD_OFFSET_MS = 3 * 3_600_000; // UTC+3, no daylight saving
+
+/**
+ * Summary numbers for one market's sell price, from our recorded history:
+ * today's high/low (Baghdad calendar day), change since ~24 h ago, the 7-day time-weighted average and how far
+ * the current price is from it, and the biggest single move in the last 7 days. Null fields mean not enough data.
+ */
+export async function getStats(env, market, now = Date.now()) {
+  const weekAgo = now - 7 * DAY_MS;
+  const [before, rows] = await env.DB.batch([
+    env.DB.prepare('SELECT at, sell, buy FROM price_history WHERE market = ? AND at < ? ORDER BY at DESC LIMIT 1').bind(market, weekAgo),
+    env.DB.prepare('SELECT at, sell, buy FROM price_history WHERE market = ? AND at >= ? ORDER BY at').bind(market, weekAgo),
+  ]);
+  return { market, ...computeStats([...before.results, ...rows.results], now) };
+}
+
+/** Pure part of getStats: `points` are { at, sell, buy } in time order, starting with the last one before the window. */
+export function computeStats(points, now = Date.now()) {
+  const weekAgo = now - 7 * DAY_MS;
+  if (!points.length) return { current: null, today: null, change24h: null, avg7: null, vsAvg7Pct: null, biggestMove: null };
+
+  const current = points.at(-1);
+  // Price in force at time t: the last point at or before t.
+  const priceAt = t => [...points].reverse().find(p => p.at <= t)?.sell ?? null;
+
+  const todayStart = Math.floor((now + BAGHDAD_OFFSET_MS) / DAY_MS) * DAY_MS - BAGHDAD_OFFSET_MS;
+  const todaySells = [priceAt(todayStart), ...points.filter(p => p.at >= todayStart).map(p => p.sell)].filter(v => v != null);
+
+  const dayAgo = priceAt(now - DAY_MS);
+
+  // Time-weighted average over the window covered by data (each price counts for as long as it lasted).
+  let weighted = 0;
+  let span = 0;
+  points.forEach((p, i) => {
+    const start = Math.max(p.at, weekAgo);
+    const end = points[i + 1]?.at ?? now;
+    if (end > start) { weighted += p.sell * (end - start); span += end - start; }
+  });
+  const avg7 = span >= DAY_MS ? weighted / span : null; // under a day of data, an average is meaningless
+
+  let biggestMove = null;
+  for (let i = 1; i < points.length; i++) {
+    if (points[i].at < weekAgo) continue;
+    const delta = points[i].sell - points[i - 1].sell;
+    if (delta !== 0 && (!biggestMove || Math.abs(delta) > Math.abs(biggestMove.delta))) biggestMove = { delta, at: points[i].at };
+  }
+
+  return {
+    current: { sell: current.sell, buy: current.buy, at: current.at },
+    today: todaySells.length ? { high: Math.max(...todaySells), low: Math.min(...todaySells) } : null,
+    change24h: dayAgo == null ? null : current.sell - dayAgo,
+    avg7,
+    vsAvg7Pct: avg7 ? ((current.sell - avg7) / avg7) * 100 : null,
+    biggestMove,
+  };
+}

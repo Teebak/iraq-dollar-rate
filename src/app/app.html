@@ -151,6 +151,43 @@
             }
           </div>
         </div>
+        @if (stats(); as st) {
+          <div class="stats">
+            @if (st.today; as d) {
+              <div class="stat">
+                <span class="stat-label">{{ t.statToday }}</span>
+                <bdi class="stat-value num">
+                  @if (d.high === d.low) { {{ d.high | number: '1.0-2' }} } @else { {{ d.low | number: '1.0-2' }} – {{ d.high | number: '1.0-2' }} }
+                </bdi>
+              </div>
+            }
+            @if (st.change24h != null) {
+              <div class="stat">
+                <span class="stat-label">{{ t.statSinceYesterday }}</span>
+                <span class="stat-value" [class.up]="st.change24h > 0" [class.down]="st.change24h < 0">
+                  @if (st.change24h) {
+                    <bdi class="num">{{ st.change24h > 0 ? '▲' : '▼' }} {{ (st.change24h < 0 ? -st.change24h : st.change24h) | number: '1.0-2' }}</bdi>
+                  } @else { {{ t.steady }} }
+                </span>
+              </div>
+            }
+            @if (st.vsAvg7Pct != null) {
+              <div class="stat">
+                <span class="stat-label">{{ t.statVsWeek }}</span>
+                <span class="stat-value" [class.up]="st.vsAvg7Pct > 0.05" [class.down]="st.vsAvg7Pct < -0.05">
+                  <bdi class="num">{{ st.vsAvg7Pct > 0.05 ? '▲' : st.vsAvg7Pct < -0.05 ? '▼' : '' }} {{ (st.vsAvg7Pct < 0 ? -st.vsAvg7Pct : st.vsAvg7Pct) | number: '1.1-1' }}%</bdi>
+                </span>
+              </div>
+            }
+          </div>
+          @if (st.biggestMove; as mv) {
+            <p class="note stat-note">
+              {{ t.statBiggestMove }}
+              <bdi class="num" [class.up]="mv.delta > 0" [class.down]="mv.delta < 0">{{ mv.delta > 0 ? '▲' : '▼' }} {{ (mv.delta < 0 ? -mv.delta : mv.delta) | number: '1.0-2' }}</bdi>
+              ({{ biggestMoveDate() }})
+            </p>
+          }
+        }
         @if (trend(); as h) {
           @if (h.points.length) {
             <app-trend-chart [points]="h.points" [from]="h.from" [highLabel]="t.high" [lowLabel]="t.low"

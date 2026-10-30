@@ -14,7 +14,8 @@ Live: https://iraq-dollar-rate.launchpad-apps.workers.dev · Mini App: https://t
 | Worker | `worker/` (Cloudflare) | Serves the app and its rates endpoint, handles the bot webhook. Only the 5-minute cron contacts iraqborsa.com; its response is saved in D1 and everything else (app, bot, inline, alerts) reads that copy |
 | Bot | `worker/bot.js`, `worker/inline.js` | Commands, inline mode (`@ShkadDollarBot` in any chat) |
 | Alerts | `worker/alerts.js`, `worker/app-api.js` | Price alerts for any city/side; app API authenticated by Telegram initData |
-| History | `worker/history.js` | Shared price history, `/api/history` |
+| History & stats | `worker/history.js` | Shared price history (`/api/history`) and stats: today's high/low, 24 h change, 7-day average, biggest move (`/api/stats`) |
+| Channel | `worker/channel.js` | Auto-posts Baghdad price moves (max every 30 min, or at once on a move of 5+) and the daily summary to a public channel. Admin links it with `/channel @name` |
 | Cron | `wrangler.jsonc` | Every 5 min: check source health, record history, fire alerts. 10:00 Baghdad: daily summary |
 | Monitoring | `worker/monitor.js` | Messages the admin when the source is down 15 min, recovers, or is unchanged 24 h; `/api/status` drives the app's warning. Claim admin with `/admin <code>` (printed by `npm run setup-bot`), check with `/status` |
 | Share cards | `src/app/rate-card.ts`, `worker/cards.js` | Rate image drawn on the device, shared via Telegram's share sheet |

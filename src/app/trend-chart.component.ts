@@ -8,7 +8,7 @@ const PAD_TOP = 14;
 const PAD_BOTTOM = 14;
 
 /**
- * Step chart of observed sell/buy prices (per $100). Prices move in discrete steps,
+ * Step chart of observed sell/buy prices (per $1). Prices move in discrete steps,
  * so a step line is the honest shape; the last value extends to "now".
  */
 @Component({
@@ -16,7 +16,7 @@ const PAD_BOTTOM = 14;
   imports: [DecimalPipe],
   template: `
     @if (geometry(); as g) {
-      <p class="scale">{{ highLabel() }} <b dir="ltr">{{ g.max * 100 | number: '1.0-0' }}</b></p>
+      <p class="scale">{{ highLabel() }} <b dir="ltr">{{ g.max | number: '1.0-2' }}</b></p>
       <svg [attr.viewBox]="'0 0 ' + width + ' ' + height" preserveAspectRatio="none" dir="ltr" role="img"
            [attr.aria-label]="ariaLabel()">
         <defs>
@@ -32,7 +32,7 @@ const PAD_BOTTOM = 14;
         <path class="line sell" [attr.d]="g.sell" />
         <circle class="dot" [attr.cx]="width" [attr.cy]="g.lastSellY" r="3.5" />
       </svg>
-      <p class="scale low">{{ lowLabel() }} <b dir="ltr">{{ g.min * 100 | number: '1.0-0' }}</b></p>
+      <p class="scale low">{{ lowLabel() }} <b dir="ltr">{{ g.min | number: '1.0-2' }}</b></p>
     }
   `,
   styleUrl: './trend-chart.component.scss',

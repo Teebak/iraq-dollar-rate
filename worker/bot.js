@@ -6,6 +6,7 @@ import { isGone, openAppKeyboard, tg } from './telegram.js';
 import { storedRates, yesterdaySell } from './history.js';
 import { handleInlineQuery } from './inline.js';
 import { adminCode, getAdmin, setAdmin, statusText } from './monitor.js';
+import { linkChannel, postToChannel } from './channel.js';
 import { MAX_ALERTS, addAlert, alertLabel, deleteAlert, fireAlerts, listAlerts as alertsFor, normalizeTarget } from './alerts.js';
 
 const QUICK_STEPS = [5, 10];
@@ -31,6 +32,9 @@ export async function handleUpdate(update, env) {
     case '/subscribe': return subscribe(env, chatId);
     case '/unsubscribe': return unsubscribe(env, chatId);
     case '/admin': return claimAdmin(env, chatId, args[0]);
+    case '/channel':
+      if ((await getAdmin(env)) === chatId) return tg(env, 'sendMessage', { chat_id: chatId, text: await linkChannel(env, args[0]) });
+      return sendRates(env, chatId);
     case '/status':
       if ((await getAdmin(env)) === chatId) return tg(env, 'sendMessage', { chat_id: chatId, text: await statusText(env) });
       return sendRates(env, chatId);
@@ -205,6 +209,7 @@ export async function sendDailySummary(env) {
     '🗓 ملخص اليوم — ' + todayInBaghdad(), '', ...cityLines(rates, yesterday), '', 'الأسعار بالدينار لكل 1 دولار.',
     ...(staleSince ? ['', staleNote(staleSince)] : []),
   ].join('\n');
+  await postToChannel(env, text);
   const { results } = await env.DB.prepare('SELECT chat_id FROM subscribers').all();
 
   // Telegram allows ~30 messages/second; stay well under it.

@@ -13,6 +13,7 @@ import { IconComponent } from './icon.component';
 import { AlertSheetComponent } from './alert-sheet.component';
 import { ShareService } from './share.service';
 import { SourceStatusService } from './source-status.service';
+import { StatsService } from './stats.service';
 
 type Have = 'usd' | 'iqd';
 
@@ -36,6 +37,7 @@ export class App implements OnInit {
   protected readonly i18n = inject(I18nService);
   private readonly shareSvc = inject(ShareService);
   protected readonly sourceStatus = inject(SourceStatusService);
+  protected readonly statsSvc = inject(StatsService);
   protected readonly historySvc = inject(HistoryService);
   protected readonly ranges: RangeDays[] = [1, 7, 30];
 
@@ -93,6 +95,20 @@ export class App implements OnInit {
     return new Intl.DateTimeFormat(locale, { day: 'numeric', month: 'long', hour: 'numeric', minute: '2-digit' }).format(h.since);
   });
 
+  /** Stats for the city on screen; stale responses for another city are ignored. */
+  protected readonly stats = computed(() => {
+    const s = this.statsSvc.stats();
+    return s && s.market === this.active()?.market.key && s.current ? s : null;
+  });
+
+  /** Weekday and date of the week's biggest move, in the UI language. */
+  protected readonly biggestMoveDate = computed(() => {
+    const at = this.stats()?.biggestMove?.at;
+    if (!at) return '';
+    const locale = this.i18n.lang() === 'ar' ? 'ar-IQ-u-nu-latn' : 'en-GB';
+    return new Intl.DateTimeFormat(locale, { weekday: 'long', day: 'numeric', month: 'long' }).format(at);
+  });
+
   /** Market whose alert sheet is open, or null. */
   protected readonly alertMarket = signal<string | null>(null);
 
@@ -128,7 +144,10 @@ export class App implements OnInit {
     // Load shared history for whichever city is on screen.
     effect(() => {
       const key = this.active()?.market.key;
-      if (key) this.historySvc.market.set(key);
+      if (key) {
+        this.historySvc.market.set(key);
+        this.statsSvc.market.set(key);
+      }
     });
 
     // Recompute parallax once cards exist.
