@@ -13,7 +13,7 @@ describe('App', () => {
     }).compileComponents();
   });
 
-  it('shows per-$1 prices and the 100 USD equivalent on the city card', async () => {
+  it('shows per-$1 prices, with a change chip only when the price moved', async () => {
     const fixture = TestBed.createComponent(App);
     fixture.detectChanges();
     await new Promise(r => setTimeout(r)); // first poll fires on timer(0)
@@ -23,7 +23,6 @@ describe('App', () => {
     await fixture.whenStable();
     const values = [...fixture.nativeElement.querySelectorAll('.quote-value')].map((e: Element) => e.textContent?.trim());
     expect(values).toEqual(['1,672.5', '1,662.5']);
-    const per100 = [...fixture.nativeElement.querySelectorAll('.quote-per')].map((e: Element) => e.textContent?.trim());
-    expect(per100).toEqual(['100 دولار = 167,250 د.ع', '100 دولار = 166,250 د.ع']);
+    expect(fixture.nativeElement.querySelectorAll('.delta').length).toBe(2);
   });
 });

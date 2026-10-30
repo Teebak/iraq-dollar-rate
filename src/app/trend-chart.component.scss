@@ -3,6 +3,16 @@
   color: var(--tint);
 }
 
+.top {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 0 0 8px;
+
+  .scale { margin: 0; }
+}
+
 .scale {
   margin: 0 0 8px;
   font-size: 12px;

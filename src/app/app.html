@@ -29,7 +29,7 @@
           <bdi class="num">{{ since | date: 'HH:mm' }}</bdi>
         } @else if (rates.lastUpdated()) {
           <span>{{ t.live }}</span>
-          <bdi class="num">{{ rates.lastUpdated() | date: 'HH:mm:ss' }}</bdi>
+          <bdi class="num">{{ rates.lastUpdated() | date: 'HH:mm' }}</bdi>
         } @else {
           <span>{{ t.connecting }}</span>
         }
@@ -46,8 +46,17 @@
     <p class="stale-banner" role="alert">⚠️ {{ t.showingStale }}</p>
   }
 
+  @if (iq.gold()) {
+    <div class="segmented tabs" role="tablist">
+      <button type="button" role="tab" [attr.aria-selected]="tab() === 'usd'" [class.on]="tab() === 'usd'"
+              (click)="setTab('usd')">{{ t.tabUsd }}</button>
+      <button type="button" role="tab" [attr.aria-selected]="tab() === 'gold'" [class.on]="tab() === 'gold'"
+              (click)="setTab('gold')">{{ t.goldTitle }}</button>
+    </div>
+  }
+
   @if (cards().length) {
-    <section class="rail" #rail (scroll)="onRailScroll()" [attr.aria-label]="t.cityPicker">
+    <section class="rail" [class.off]="tab() === 'gold'" #rail (scroll)="onRailScroll()" [attr.aria-label]="t.cityPicker">
       @for (card of cards(); track card.market.key; let i = $index) {
         @let m = card.market;
         <article #card class="city-card glass-strong" [class.active]="i === activeIndex()" [style.--card-tint]="card.city.tint"
@@ -74,29 +83,23 @@
               <div class="quote-side">
                 <span class="quote-title">{{ t.sellShort }}</span>
                 <app-ticker class="quote-value" [value]="m.sell" format="1.0-2" />
-                <span class="delta" [class.up]="m.sellChange > 0" [class.down]="m.sellChange < 0">
-                  @if (m.sellChange) {
+                @if (m.sellChange) {
+                  <span class="delta" [class.up]="m.sellChange > 0" [class.down]="m.sellChange < 0">
                     <app-icon [name]="changeIcon(m.sellChange)" />
                     <bdi class="num">{{ m.sellChange > 0 ? '+' : '' }}{{ m.sellChange | number: '1.0-2' }}</bdi>
-                  } @else {
-                    {{ t.steady }}
-                  }
-                </span>
-                <span class="quote-per">{{ t.per100Line((m.sell * 100 | number: '1.0-0') ?? '') }}</span>
+                  </span>
+                }
               </div>
               <div class="quote-divider" aria-hidden="true"></div>
               <div class="quote-side">
                 <span class="quote-title">{{ t.buyShort }}</span>
                 <app-ticker class="quote-value" [value]="m.buy" format="1.0-2" />
-                <span class="delta" [class.up]="m.buyChange > 0" [class.down]="m.buyChange < 0">
-                  @if (m.buyChange) {
+                @if (m.buyChange) {
+                  <span class="delta" [class.up]="m.buyChange > 0" [class.down]="m.buyChange < 0">
                     <app-icon [name]="changeIcon(m.buyChange)" />
                     <bdi class="num">{{ m.buyChange > 0 ? '+' : '' }}{{ m.buyChange | number: '1.0-2' }}</bdi>
-                  } @else {
-                    {{ t.steady }}
-                  }
-                </span>
-                <span class="quote-per">{{ t.per100Line((m.buy * 100 | number: '1.0-0') ?? '') }}</span>
+                  </span>
+                }
               </div>
           </div>
           @if (iq.official(); as off) {
@@ -109,15 +112,15 @@
       }
     </section>
 
-    <nav class="pager" [attr.aria-label]="t.cityPicker">
+    <nav class="pager" [class.off]="tab() === 'gold'" [attr.aria-label]="t.cityPicker">
       @for (card of cards(); track card.market.key; let i = $index) {
         <button type="button" [class.on]="i === activeIndex()" [attr.aria-current]="i === activeIndex()"
-                (click)="goTo(i)">{{ i18n.marketLabel(card.market.key) }}</button>
+                [attr.aria-label]="i18n.marketLabel(card.market.key)" (click)="goTo(i)"></button>
       }
     </nav>
 
     @if (active(); as a) {
-      <section class="panel glass converter">
+      <section class="panel glass converter" [class.off]="tab() === 'gold'">
         <h3>{{ t.converter }}</h3>
         <div class="segmented" role="radiogroup">
           <button type="button" role="radio" [attr.aria-checked]="have() === 'usd'" [class.on]="have() === 'usd'"
@@ -133,6 +136,11 @@
                  (blur)="amountFocused.set(false)" (keydown.enter)="$any($event.target).blur()" />
           <span class="amount-currency">{{ have() === 'usd' ? t.usd : t.iqd }}</span>
         </div>
+        <div class="quick">
+          @for (q of quickAmounts(); track q) {
+            <button type="button" [class.on]="amount() === q" (click)="setAmount(q)"><bdi class="num">{{ q | number: '1.0-0' }}</bdi></button>
+          }
+        </div>
         <div class="result">
           <span class="result-label">{{ t.youGet }}</span>
           <span class="result-value">
@@ -147,7 +155,7 @@
         </p>
       </section>
 
-      <section class="panel glass trend">
+      <section class="panel glass trend" [class.off]="tab() === 'gold'">
         <div class="panel-head">
           <h3>{{ t.trend }}</h3>
           <div class="range" role="radiogroup" [attr.aria-label]="t.trend">
@@ -158,50 +166,34 @@
           </div>
         </div>
         @if (stats(); as st) {
-          <div class="stats">
+          <p class="stats">
             @if (st.today; as d) {
-              <div class="stat">
-                <span class="stat-label">{{ t.statToday }}</span>
-                <bdi class="stat-value num" [class.range]="d.high !== d.low">
-                  @if (d.high === d.low) { {{ d.high | number: '1.0-2' }} } @else { <span>{{ d.low | number: '1.0-2' }}</span> – <span>{{ d.high | number: '1.0-2' }}</span> }
-                </bdi>
-              </div>
+              <span>{{ t.statToday }}
+                <bdi class="num">@if (d.high === d.low) { {{ d.high | number: '1.0-2' }} } @else { {{ d.low | number: '1.0-2' }}–{{ d.high | number: '1.0-2' }} }</bdi></span>
             }
             @if (st.change24h != null) {
-              <div class="stat">
-                <span class="stat-label">{{ t.statSinceYesterday }}</span>
-                <span class="stat-value" [class.up]="st.change24h > 0" [class.down]="st.change24h < 0">
-                  @if (st.change24h) {
-                    <bdi class="num">{{ st.change24h > 0 ? '▲' : '▼' }} {{ (st.change24h < 0 ? -st.change24h : st.change24h) | number: '1.0-2' }}</bdi>
-                  } @else { {{ t.steady }} }
-                </span>
-              </div>
+              <span>{{ t.statSinceYesterday }}
+                @if (st.change24h) {
+                  <bdi class="num" [class.up]="st.change24h > 0" [class.down]="st.change24h < 0">{{ st.change24h > 0 ? '▲' : '▼' }} {{ (st.change24h < 0 ? -st.change24h : st.change24h) | number: '1.0-2' }}</bdi>
+                } @else { <b>{{ t.steady }}</b> }</span>
             }
             @if (st.vsAvg7Pct != null) {
-              <div class="stat">
-                <span class="stat-label">{{ t.statVsWeek }}</span>
-                <span class="stat-value" [class.up]="st.vsAvg7Pct > 0.05" [class.down]="st.vsAvg7Pct < -0.05">
-                  <bdi class="num">{{ st.vsAvg7Pct > 0.05 ? '▲' : st.vsAvg7Pct < -0.05 ? '▼' : '' }} {{ (st.vsAvg7Pct < 0 ? -st.vsAvg7Pct : st.vsAvg7Pct) | number: '1.1-1' }}%</bdi>
-                </span>
-              </div>
+              <span>{{ t.statVsWeek }}
+                <bdi class="num" [class.up]="st.vsAvg7Pct > 0.05" [class.down]="st.vsAvg7Pct < -0.05">{{ st.vsAvg7Pct > 0.05 ? '▲' : st.vsAvg7Pct < -0.05 ? '▼' : '' }} {{ (st.vsAvg7Pct < 0 ? -st.vsAvg7Pct : st.vsAvg7Pct) | number: '1.1-1' }}%</bdi></span>
             }
-          </div>
-          @if (st.biggestMove; as mv) {
-            <p class="note stat-note">
-              {{ t.statBiggestMove }}
-              <bdi class="num" [class.up]="mv.delta > 0" [class.down]="mv.delta < 0">{{ mv.delta > 0 ? '▲' : '▼' }} {{ (mv.delta < 0 ? -mv.delta : mv.delta) | number: '1.0-2' }}</bdi>
-              ({{ biggestMoveDate() }})
-            </p>
-          }
+            @if (st.biggestMove; as mv) {
+              <span>{{ t.statBiggestMove }}
+                <bdi class="num" [class.up]="mv.delta > 0" [class.down]="mv.delta < 0">{{ mv.delta > 0 ? '▲' : '▼' }} {{ (mv.delta < 0 ? -mv.delta : mv.delta) | number: '1.0-2' }}</bdi>
+                ({{ biggestMoveDate() }})</span>
+            }
+          </p>
         }
         @if (trend(); as h) {
           @if (h.points.length || h.daily?.length) {
             <app-trend-chart [points]="h.points" [daily]="h.daily ?? []" [from]="h.from" [highLabel]="t.high" [lowLabel]="t.low"
-                             [ariaLabel]="t.trend + ' — ' + activeName()" />
-            <p class="legend">
-              <i class="sw sell"></i>{{ t.sellTitle }}
-              <i class="sw buy"></i>{{ t.buyTitle }}
-            </p>
+                             [ariaLabel]="t.trend + ' — ' + activeName()">
+              <span class="legend"><i class="sw sell"></i>{{ t.sellShort }} <i class="sw buy"></i>{{ t.buyShort }}</span>
+            </app-trend-chart>
             @if (h.daily?.length) {
               <p class="note">{{ t.trendDailyNote }} <a [href]="iqUrl" target="_blank" rel="noopener">IQWealth</a></p>
             } @else if (trendSince()) {
@@ -216,26 +208,19 @@
       </section>
 
       @if (iq.gold(); as g) {
-        <section class="panel glass gold">
-          <div class="panel-head">
-            <h3>{{ t.goldTitle }}</h3>
-            <span class="hint-small">{{ t.goldPerMithqal }}</span>
-          </div>
-          <div class="gold-grid">
-            @for (k of g.karats; track k.karat) {
-              <div class="gold-tile">
-                <span class="karat">{{ t.karat(k.karat) }}</span>
-                <bdi class="gold-price num">{{ k.mithqal | number: '1.0-0' }}</bdi>
-                @if (k.change) {
-                  <bdi class="num gold-change" [class.up]="k.change > 0" [class.down]="k.change < 0">
-                    {{ k.change > 0 ? '▲' : '▼' }} {{ (k.change < 0 ? -k.change : k.change) | number: '1.0-0' }}
-                  </bdi>
-                } @else {
-                  <span class="gold-change">{{ t.steady }}</span>
-                }
-              </div>
-            }
-          </div>
+        <section class="panel glass gold" [class.off]="tab() === 'usd'">
+          <h3 class="gold-head">{{ t.goldPerMithqal }}</h3>
+          @for (k of g.karats; track k.karat) {
+            <div class="gold-row" [class.main]="k.karat === 21">
+              <span class="karat">{{ t.karat(k.karat) }}</span>
+              <bdi class="gold-price num">{{ k.mithqal | number: '1.0-0' }}</bdi>
+              @if (k.change) {
+                <bdi class="num gold-change" [class.up]="k.change > 0" [class.down]="k.change < 0">
+                  {{ k.change > 0 ? '▲' : '▼' }} {{ (k.change < 0 ? -k.change : k.change) | number: '1.0-0' }}
+                </bdi>
+              }
+            </div>
+          }
           @if (g.shops21; as sh) {
             <div class="gold-shops">
               <span class="shops-title">{{ t.goldShops21 }}</span>
@@ -266,7 +251,7 @@
 }
 
 <!-- Our own share button (Telegram's native bottom button can't show an icon). -->
-@if (active()) {
+@if (active() && tab() === 'usd') {
   <div class="share-bar">
     <button type="button" class="share-btn" (click)="share()" [disabled]="sharing()">
       <app-icon [name]="sharing() ? 'refresh' : 'share'" [class.spin]="sharing()" />

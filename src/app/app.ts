@@ -64,6 +64,10 @@ export class App implements OnInit {
   protected readonly have = signal<Have>('usd');
   /** Exactly what the user typed (sanitised); formatted with separators only while the field isn't focused. */
   protected readonly amountText = signal('100');
+  /** One-tap amounts under the converter field, in the currency you have. */
+  protected readonly quickAmounts = computed(() => (this.have() === 'usd' ? [100, 500, 1000] : [100_000, 500_000, 1_000_000]));
+  /** Dollar or gold view; gold only appears once IQWealth's gold data has loaded. */
+  protected readonly tab = signal<'usd' | 'gold'>('usd');
   protected readonly amountFocused = signal(false);
   protected readonly amount = computed(() => Number(this.amountText()) || 0);
   protected readonly amountDisplay = computed(() =>
@@ -104,12 +108,12 @@ export class App implements OnInit {
     return s && s.market === this.active()?.market.key && s.current ? s : null;
   });
 
-  /** Weekday and date of the week's biggest move, in the UI language. */
+  /** Weekday of the week's biggest move, in the UI language. */
   protected readonly biggestMoveDate = computed(() => {
     const at = this.stats()?.biggestMove?.at;
     if (!at) return '';
     const locale = this.i18n.lang() === 'ar' ? 'ar-IQ-u-nu-latn' : 'en-GB';
-    return new Intl.DateTimeFormat(locale, { weekday: 'long', day: 'numeric', month: 'long' }).format(at);
+    return new Intl.DateTimeFormat(locale, { weekday: 'long' }).format(at);
   });
 
   /** Market whose alert sheet is open, or null. */
@@ -193,7 +197,7 @@ export class App implements OnInit {
   }
 
   protected goTo(index: number): void {
-    this.cardEls()[index]?.nativeElement.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+    this.cardEls()[index]?.nativeElement.scrollIntoView({ behavior: 'smooth', inline: 'start', block: 'nearest' });
   }
 
   protected refresh(): void {
@@ -222,6 +226,23 @@ export class App implements OnInit {
     this.have.set(have);
     this.amountText.set(have === 'usd' ? '100' : '100000');
     this.tg.selection();
+  }
+
+  protected setAmount(value: number): void {
+    this.amountText.set(String(value));
+    this.tg.selection();
+  }
+
+  protected setTab(tab: 'usd' | 'gold'): void {
+    if (tab === this.tab()) return;
+    this.tab.set(tab);
+    this.tg.selection();
+    window.scrollTo({ top: 0 });
+    // The rail loses its scroll position while hidden: put the active city back in view.
+    if (tab === 'usd') {
+      requestAnimationFrame(() =>
+        this.cardEls()[this.activeIndex()]?.nativeElement.scrollIntoView({ behavior: 'instant', inline: 'start', block: 'nearest' }));
+    }
   }
 
   protected onAmount(event: Event): void {

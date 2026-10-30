@@ -16,7 +16,10 @@ const PAD_BOTTOM = 14;
   imports: [DecimalPipe],
   template: `
     @if (geometry(); as g) {
-      <p class="scale">{{ highLabel() }} <b dir="ltr">{{ g.max | number: '1.0-2' }}</b></p>
+      <div class="top">
+        <p class="scale">{{ highLabel() }} <b dir="ltr">{{ g.max | number: '1.0-2' }}</b></p>
+        <ng-content />
+      </div>
       <svg [attr.viewBox]="'0 0 ' + width + ' ' + height" preserveAspectRatio="none" dir="ltr" role="img"
            [attr.aria-label]="ariaLabel()">
         <defs>
