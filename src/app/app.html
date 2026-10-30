@@ -99,6 +99,12 @@
                 <span class="quote-per">{{ t.per100Line((m.buy * 100 | number: '1.0-0') ?? '') }}</span>
               </div>
           </div>
+          @if (iq.official(); as off) {
+            <p class="official">
+              <span>{{ t.officialRate }} <bdi class="num">{{ off.cbi | number: '1.0-2' }}</bdi></span>
+              <span class="gap">{{ t.officialGap }} <bdi class="num">+{{ ((m.sell - off.cbi) / off.cbi) * 100 | number: '1.1-1' }}%</bdi></span>
+            </p>
+          }
         </article>
       }
     </section>
@@ -156,8 +162,8 @@
             @if (st.today; as d) {
               <div class="stat">
                 <span class="stat-label">{{ t.statToday }}</span>
-                <bdi class="stat-value num">
-                  @if (d.high === d.low) { {{ d.high | number: '1.0-2' }} } @else { {{ d.low | number: '1.0-2' }} – {{ d.high | number: '1.0-2' }} }
+                <bdi class="stat-value num" [class.range]="d.high !== d.low">
+                  @if (d.high === d.low) { {{ d.high | number: '1.0-2' }} } @else { <span>{{ d.low | number: '1.0-2' }}</span> – <span>{{ d.high | number: '1.0-2' }}</span> }
                 </bdi>
               </div>
             }
@@ -189,14 +195,16 @@
           }
         }
         @if (trend(); as h) {
-          @if (h.points.length) {
-            <app-trend-chart [points]="h.points" [from]="h.from" [highLabel]="t.high" [lowLabel]="t.low"
+          @if (h.points.length || h.daily?.length) {
+            <app-trend-chart [points]="h.points" [daily]="h.daily ?? []" [from]="h.from" [highLabel]="t.high" [lowLabel]="t.low"
                              [ariaLabel]="t.trend + ' — ' + activeName()" />
             <p class="legend">
               <i class="sw sell"></i>{{ t.sellTitle }}
               <i class="sw buy"></i>{{ t.buyTitle }}
             </p>
-            @if (trendSince()) {
+            @if (h.daily?.length) {
+              <p class="note">{{ t.trendDailyNote }} <a [href]="iqUrl" target="_blank" rel="noopener">IQWealth</a></p>
+            } @else if (trendSince()) {
               <p class="note">{{ t.trendSince(trendSince()) }}</p>
             }
           } @else {
@@ -206,6 +214,41 @@
           <p class="empty">{{ t.trendLoading }}</p>
         }
       </section>
+
+      @if (iq.gold(); as g) {
+        <section class="panel glass gold">
+          <div class="panel-head">
+            <h3>{{ t.goldTitle }}</h3>
+            <span class="hint-small">{{ t.goldPerMithqal }}</span>
+          </div>
+          <div class="gold-grid">
+            @for (k of g.karats; track k.karat) {
+              <div class="gold-tile">
+                <span class="karat">{{ t.karat(k.karat) }}</span>
+                <bdi class="gold-price num">{{ k.mithqal | number: '1.0-0' }}</bdi>
+                @if (k.change) {
+                  <bdi class="num gold-change" [class.up]="k.change > 0" [class.down]="k.change < 0">
+                    {{ k.change > 0 ? '▲' : '▼' }} {{ (k.change < 0 ? -k.change : k.change) | number: '1.0-0' }}
+                  </bdi>
+                } @else {
+                  <span class="gold-change">{{ t.steady }}</span>
+                }
+              </div>
+            }
+          </div>
+          @if (g.shops21; as sh) {
+            <div class="gold-shops">
+              <span class="shops-title">{{ t.goldShops21 }}</span>
+              @if (sh.iraqi) { <span>{{ t.goldIraqi }} <bdi class="num">{{ sh.iraqi.low | number: '1.0-0' }} – {{ sh.iraqi.high | number: '1.0-0' }}</bdi></span> }
+              @if (sh.gulf) { <span>{{ t.goldGulf }} <bdi class="num">{{ sh.gulf.low | number: '1.0-0' }} – {{ sh.gulf.high | number: '1.0-0' }}</bdi></span> }
+            </div>
+          }
+          <p class="note">
+            {{ t.goldNote(g.asOf ?? '') }}
+            <a [href]="iqUrl" target="_blank" rel="noopener">IQWealth</a>
+          </p>
+        </section>
+      }
     }
   } @else if (!rates.error()) {
     <div class="skeleton" aria-busy="true">
@@ -216,6 +259,7 @@
   <footer class="footer">
     <p class="disclaimer">{{ t.disclaimer }}</p>
     <p>{{ t.source }}: <a href="https://iraqborsa.com" target="_blank" rel="noopener">iraqborsa.com</a></p>
+    <p>{{ t.sourceIq }}: <a [href]="iqUrl" target="_blank" rel="noopener">IQWealth (iraqsm.com)</a></p>
   </footer>
 </main>
 

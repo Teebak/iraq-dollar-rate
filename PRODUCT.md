@@ -19,6 +19,7 @@ A Telegram Mini App that shows live buy/sell dollar prices for Baghdad, Erbil an
 - Share rate to a Telegram chat via `t.me/share/url`.
 - Price alerts (any city, sell or buy) are sent by the bot; set in the app or with /alert. A daily summary goes to /subscribe users.
 - Source health is monitored; when iraqborsa.com fails for 10+ minutes the app warns that prices may be stale, and the owner is messaged.
+- Official CBI rate, the market's gap above it, gold per mithqal (24/22/21/18 and shop ranges for 21) and Baghdad daily closes from before our recording come from IQWealth's open feeds (iraqsm.com/data). Their licence: free with attribution, not real-time. Always credit IQWealth with a link and present them as daily readings.
 - Arabic (RTL) is the default language; English is available.
 
 ## Brand Commitments
@@ -27,7 +28,7 @@ A Telegram Mini App that shows live buy/sell dollar prices for Baghdad, Erbil an
 
 ## Evidence on Hand
 - City photos: Wikimedia Commons, freely licensed, credited in-app (`public/cities/CREDITS.md`).
-- No testimonials, sources beyond iraqborsa.com, or official central-bank rates; do not invent them.
+- No testimonials; sources are iraqborsa.com (live market) and IQWealth (official rate, daily closes, gold). Do not invent others.
 
 ## Product Principles
 1. The current price for the chosen city is the hero; everything else is secondary.

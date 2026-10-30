@@ -20,6 +20,8 @@ export interface History {
   /** When recording began for this market, or null if nothing is recorded yet. */
   since: number | null;
   points: PricePoint[];
+  /** Baghdad only: IQWealth daily closes from before `since`, so longer ranges aren't empty. */
+  daily?: PricePoint[];
 }
 
 /** Served by the Cloudflare Worker (worker/history.js); proxied to the live Worker in dev by proxy.conf.json. */

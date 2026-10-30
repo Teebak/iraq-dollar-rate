@@ -50,6 +50,7 @@ async function main() {
       { command: 'start', description: 'سعر الدولار الآن' },
       { command: 'alert', description: 'نبّهني عند سعر معيّن في بغداد' },
       { command: 'alerts', description: 'تنبيهاتي' },
+      { command: 'gold', description: 'أسعار الذهب للمثقال' },
       { command: 'subscribe', description: 'ملخص يومي للأسعار' },
       { command: 'unsubscribe', description: 'إلغاء الملخص اليومي' },
     ],

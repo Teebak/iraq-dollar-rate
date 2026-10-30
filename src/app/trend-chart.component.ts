@@ -27,6 +27,9 @@ const PAD_BOTTOM = 14;
         </defs>
         <line class="grid" x1="0" [attr.x2]="width" [attr.y1]="padTop" [attr.y2]="padTop" />
         <line class="grid" x1="0" [attr.x2]="width" [attr.y1]="height - padBottom" [attr.y2]="height - padBottom" />
+        @if (g.daily) {
+          <path class="line daily" [attr.d]="g.daily" />
+        }
         <path class="area" [attr.d]="g.sellArea" fill="url(#trend-fill)" />
         <path class="line buy" [attr.d]="g.buy" />
         <path class="line sell" [attr.d]="g.sell" />
@@ -39,6 +42,8 @@ const PAD_BOTTOM = 14;
 })
 export class TrendChartComponent {
   readonly points = input.required<PricePoint[]>();
+  /** Daily closes from before our own recording (IQWealth), drawn as a lighter dotted line leading in. */
+  readonly daily = input<PricePoint[]>([]);
   /** Left edge of the time axis (epoch ms); defaults to the first point. */
   readonly from = input<number | null>(null);
   readonly highLabel = input('High');
@@ -52,11 +57,13 @@ export class TrendChartComponent {
 
   protected readonly geometry = computed(() => {
     const pts = this.points();
-    if (!pts.length) return null;
+    const daily = this.daily();
+    if (!pts.length && !daily.length) return null;
 
-    const t0 = this.from() ?? pts[0].t;
-    const t1 = Math.max(Date.now(), pts.at(-1)!.t + 1, t0 + 1);
-    const values = pts.flatMap(p => [p.sell, p.buy]);
+    const first = daily[0]?.t ?? pts[0].t;
+    const t0 = this.from() ?? first;
+    const t1 = Math.max(Date.now(), (pts.at(-1) ?? daily.at(-1)!).t + 1, t0 + 1);
+    const values = [...pts.flatMap(p => [p.sell, p.buy]), ...daily.map(p => p.sell)];
     let min = Math.min(...values);
     let max = Math.max(...values);
     if (min === max) { min -= 1; max += 1; }
@@ -73,11 +80,21 @@ export class TrendChartComponent {
       return `${d} H${W}`;
     };
 
+    // Daily closes: a plain line through each close, joined to the first recorded point.
+    const dailyLine = daily.length
+      ? daily.map((p, i) => `${i ? 'L' : 'M'}${x(p.t).toFixed(1)} ${y(p.sell).toFixed(1)}`).join(' ')
+        + (pts.length ? ` L${x(pts[0].t).toFixed(1)} ${y(pts[0].sell).toFixed(1)}` : ` L${W} ${y(daily.at(-1)!.sell).toFixed(1)}`)
+      : null;
+    if (!pts.length) {
+      return { sell: '', buy: '', sellArea: '', daily: dailyLine, lastSellY: y(daily.at(-1)!.sell), min: Math.min(...values), max: Math.max(...values) };
+    }
+
     const sell = step(p => p.sell);
     return {
       sell,
       buy: step(p => p.buy),
       sellArea: `${sell} V${H} H${x(pts[0].t).toFixed(1)} Z`,
+      daily: dailyLine,
       lastSellY: y(pts.at(-1)!.sell),
       min: Math.min(...values),
       max: Math.max(...values),

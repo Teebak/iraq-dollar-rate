@@ -2,7 +2,8 @@
 
 Telegram Mini App and bot ([@ShkadDollarBot](https://t.me/ShkadDollarBot)) showing live USD → IQD
 buy/sell prices for Baghdad, Erbil and Basra, with a converter, sharing, price alerts and a daily summary.
-Arabic (RTL) by default, English available. Prices come from iraqborsa.com's public summary.
+Arabic (RTL) by default, English available. Prices come from iraqborsa.com's public summary; the official CBI rate,
+Baghdad daily closes before our own recording, and gold prices come from IQWealth's open data feeds (credited in-app).
 
 Live: https://iraq-dollar-rate.launchpad-apps.workers.dev · Mini App: https://t.me/ShkadDollarBot/rates
 
@@ -15,6 +16,7 @@ Live: https://iraq-dollar-rate.launchpad-apps.workers.dev · Mini App: https://t
 | Bot | `worker/bot.js`, `worker/inline.js` | Commands, inline mode (`@ShkadDollarBot` in any chat) |
 | Alerts | `worker/alerts.js`, `worker/app-api.js` | Price alerts for any city/side; app API authenticated by Telegram initData |
 | History & stats | `worker/history.js` | Shared price history (`/api/history`) and stats: today's high/low, 24 h change, 7-day average, biggest move (`/api/stats`) |
+| IQWealth | `worker/iqwealth.js` | Hourly copies of iraqsm.com's open feeds (`fx`, `fx-history`, `gold`) in D1: official rate (`/api/official`), gold (`/api/gold`, bot `/gold`), and daily closes that fill the month chart. Free with attribution, not real-time |
 | Channel | `worker/channel.js` | Auto-posts Baghdad price moves (max every 30 min, or at once on a move of 5+) and the daily summary to a public channel. Admin links it with `/channel @name` |
 | Cron | `wrangler.jsonc` | Every 5 min: check source health, record history, fire alerts. 10:00 Baghdad: daily summary |
 | Monitoring | `worker/monitor.js` | Messages the admin when the source is down 15 min, recovers, or is unchanged 24 h; `/api/status` drives the app's warning. Claim admin with `/admin <code>` (printed by `npm run setup-bot`), check with `/status` |

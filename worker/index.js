@@ -7,6 +7,7 @@
 // /api/alerts            the signed-in user's price alerts (Mini App; auth by Telegram initData), see app-api.js.
 // /api/ingest            prices fetched outside Cloudflare by GitHub Actions (INGEST_KEY secret), see ingest().
 // /api/status            price-source health for the app's stale-data warning (see monitor.js).
+// /api/official, /api/gold  CBI official rate and gold prices from IQWealth's open feeds (see iqwealth.js).
 // /api/stats             today's high/low, 24 h change, 7-day average, biggest move, from history.
 // /api/history           shared price history for the app's chart (recorded by the cron, stored in D1).
 // /telegram/webhook       receives bot updates (set up with scripts/setup-bot.mjs). Needs the BOT_TOKEN secret.
@@ -20,6 +21,7 @@ import { appApi } from './app-api.js';
 import { pruneCards, serveCard } from './cards.js';
 import { publicStatus, sourceFailed, sourceOk } from './monitor.js';
 import { maybePostChange } from './channel.js';
+import { ATTRIBUTION, goldSummary, officialRate, refreshIqwealth } from './iqwealth.js';
 
 const DAILY_CRON = '0 7 * * *';
 /** If ingest delivered prices this recently, a failed direct fetch isn't reported as an outage. */
@@ -31,6 +33,8 @@ export default {
     if (pathname === '/borsa-api/summary.php') return proxyRates(request, env);
     if (pathname === '/api/history') return historyApi(request, env);
     if (pathname === '/api/stats') return statsApi(request, env);
+    if (pathname === '/api/official') return json({ ...(await officialRate(env)), attribution: ATTRIBUTION }, 200, 'public, max-age=300');
+    if (pathname === '/api/gold') return json(await goldSummary(env), 200, 'public, max-age=300');
     if (pathname === '/api/ingest') return ingest(request, env);
     if (pathname === '/api/status') return json(await publicStatus(env), 200, 'public, max-age=60');
     if (pathname === '/api/alerts' || pathname.startsWith('/api/alerts/') || pathname === '/api/cards') {
@@ -52,6 +56,9 @@ async function runCron(cron, env) {
     if (env.BOT_TOKEN) await sendDailySummary(env);
     return;
   }
+  // IQWealth feeds (official rate, daily closes, gold): refreshed about hourly, failures keep the old copy.
+  await refreshIqwealth(env).catch(err => console.error('iqwealth:', err.message));
+
   // Every 5 minutes: try the source directly. The GitHub Actions job (.github/workflows/fetch-rates.yml) also
   // delivers prices via /api/ingest, because Cloudflare can't currently reach iraqborsa.com's server.
   let fetched;

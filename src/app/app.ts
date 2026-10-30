@@ -14,6 +14,7 @@ import { AlertSheetComponent } from './alert-sheet.component';
 import { ShareService } from './share.service';
 import { SourceStatusService } from './source-status.service';
 import { StatsService } from './stats.service';
+import { IQWEALTH_URL, IqwealthService } from './iqwealth.service';
 
 type Have = 'usd' | 'iqd';
 
@@ -38,6 +39,8 @@ export class App implements OnInit {
   private readonly shareSvc = inject(ShareService);
   protected readonly sourceStatus = inject(SourceStatusService);
   protected readonly statsSvc = inject(StatsService);
+  protected readonly iq = inject(IqwealthService);
+  protected readonly iqUrl = IQWEALTH_URL;
   protected readonly historySvc = inject(HistoryService);
   protected readonly ranges: RangeDays[] = [1, 7, 30];
 

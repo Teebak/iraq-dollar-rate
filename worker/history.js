@@ -1,6 +1,7 @@
 // Shared price history in D1 (table price_history, see migrations/0004).
 
 import { CITIES, parseRates } from './rates.js';
+import { dailyCloses } from './iqwealth.js';
 
 const HEARTBEAT_MS = 60 * 60_000;
 const KEEP_MS = 90 * 86_400_000;
@@ -43,11 +44,15 @@ export async function getHistory(env, market, days, now = Date.now()) {
     env.DB.prepare('SELECT at, sell, buy FROM price_history WHERE market = ? AND at >= ? ORDER BY at').bind(market, from),
     env.DB.prepare('SELECT MIN(at) AS since FROM price_history WHERE market = ?').bind(market),
   ]);
+  const since = first.results[0]?.since ?? null;
+  // Before our recording began, fill Baghdad's chart with IQWealth's daily closes (drawn lighter, labelled).
+  const daily = market === 'b' ? await dailyCloses(env, from, since ?? now) : [];
   return {
     market,
     days,
     from,
-    since: first.results[0]?.since ?? null,
+    daily,
+    since,
     points: [...before.results, ...inside.results].map(r => ({ t: r.at, sell: r.sell, buy: r.buy })),
   };
 }

@@ -7,6 +7,7 @@ import { storedRates, yesterdaySell } from './history.js';
 import { handleInlineQuery } from './inline.js';
 import { adminCode, getAdmin, setAdmin, statusText } from './monitor.js';
 import { linkChannel, postToChannel } from './channel.js';
+import { goldSummary, officialRate } from './iqwealth.js';
 import { MAX_ALERTS, addAlert, alertLabel, deleteAlert, fireAlerts, listAlerts as alertsFor, normalizeTarget } from './alerts.js';
 
 const QUICK_STEPS = [5, 10];
@@ -29,6 +30,7 @@ export async function handleUpdate(update, env) {
   switch (name) {
     case '/alert': return args.length ? createAlert(env, chatId, args.join('')) : alertMenu(env, chatId);
     case '/alerts': return listAlerts(env, chatId);
+    case '/gold': return sendGold(env, chatId);
     case '/subscribe': return subscribe(env, chatId);
     case '/unsubscribe': return unsubscribe(env, chatId);
     case '/admin': return claimAdmin(env, chatId, args[0]);
@@ -180,6 +182,26 @@ async function claimAdmin(env, chatId, code) {
   });
 }
 
+/** Gold per mithqal by karat with yesterday's change, credited to IQWealth (their licence requires it). */
+async function goldText(env) {
+  const g = await goldSummary(env);
+  if (!g) return null;
+  const lines = g.karats.map(k => {
+    const ch = k.change ? ` (${k.change > 0 ? '▲' : '▼'} ${fmt(Math.abs(k.change))})` : '';
+    return `🟡 عيار ${k.karat}: ${fmt(k.mithqal)}${ch}`;
+  });
+  return ['💛 أسعار الذهب — دينار للمثقال', '', ...lines, '', `قراءة يومية${g.asOf ? ' (' + g.asOf + ')' : ''}. المصدر: IQWealth (iraqsm.com)`].join('\n');
+}
+
+async function sendGold(env, chatId) {
+  await tg(env, 'sendMessage', {
+    chat_id: chatId,
+    text: (await goldText(env)) ?? 'أسعار الذهب غير متوفرة الآن، حاول لاحقًا.',
+    reply_markup: openAppKeyboard(env.APP_URL),
+    link_preview_options: { is_disabled: true },
+  });
+}
+
 async function subscribe(env, chatId) {
   await env.DB.prepare('INSERT OR IGNORE INTO subscribers (chat_id, created_at) VALUES (?, ?)').bind(chatId, Date.now()).run();
   await tg(env, 'sendMessage', {
@@ -201,12 +223,26 @@ export async function checkAlerts(env, rates) {
   return fireAlerts(env, rates);
 }
 
+/** Official rate and 21K gold for the daily summary (IQWealth, credited). Empty if unavailable. */
+async function extrasLines(env, rates) {
+  const [off, gold] = await Promise.all([officialRate(env), goldSummary(env)]);
+  const k21 = gold?.karats.find(k => k.karat === 21);
+  if (!off && !k21) return [];
+  return [
+    '',
+    ...(off ? [`🏦 السعر الرسمي: ${fmt(off.cbi * 100)} لكل 100$ (السوق أعلى بـ ${(((rates.b.sell - off.cbi) / off.cbi) * 100).toFixed(1)}%)`] : []),
+    ...(k21 ? [`💛 ذهب عيار 21: ${fmt(k21.mithqal)} للمثقال`] : []),
+    'السعر الرسمي والذهب: IQWealth (iraqsm.com)',
+  ];
+}
+
 /** Daily summary to every subscriber; drops users who blocked the bot. */
 export async function sendDailySummary(env) {
   const { rates, staleSince } = await storedRates(env);
   const yesterday = staleSince ? {} : await yesterdaySell(env);
   const text = [
     '🗓 ملخص اليوم — ' + todayInBaghdad(), '', ...cityLines(rates, yesterday, 100), '', 'الأسعار بالدينار لكل 100 دولار.',
+    ...(await extrasLines(env, rates)),
     ...(staleSince ? ['', staleNote(staleSince)] : []),
   ].join('\n');
   await postToChannel(env, text);

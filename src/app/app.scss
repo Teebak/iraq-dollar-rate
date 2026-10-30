@@ -536,6 +536,62 @@ h1, h2, h3, p {
   color: var(--text-2);
 }
 
+// Official CBI rate under each city card.
+.official {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  margin: 0;
+  padding: 10px 20px 14px;
+  border-top: 1px solid var(--edge);
+  font-size: 12.5px;
+  color: var(--text-2);
+
+  .num { color: var(--text); font-weight: 600; }
+  .gap .num { color: var(--tint); }
+}
+
+// Gold panel.
+.hint-small { font-size: 12px; color: var(--text-2); }
+
+.gold-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+}
+
+.gold-tile {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 12px;
+  border-radius: 12px;
+  background: rgb(0 0 0 / 22%);
+
+  .karat { font-size: 12.5px; font-weight: 600; color: #e9c46a; }
+  .gold-price { font-size: 20px; font-weight: 700; font-variant-numeric: tabular-nums; }
+}
+
+.gold-change {
+  font-size: 12px;
+  color: var(--text-2);
+
+  &.up { color: var(--up); }
+  &.down { color: var(--down); }
+}
+
+.gold-shops {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  margin-top: 12px;
+  font-size: 12.5px;
+  color: var(--text-2);
+
+  .shops-title { color: var(--text); font-weight: 600; }
+  .num { color: var(--text); }
+}
+
 // Stat tiles above the trend chart: sell price, per $1.
 .stats {
   display: grid;
@@ -567,6 +623,16 @@ h1, h2, h3, p {
 
   &.up { color: var(--up); }
   &.down { color: var(--down); }
+
+  // A low–high range may not fit a third of a phone: let it break at the dash, never inside a number.
+  &.range {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0 4px;
+    white-space: normal;
+    font-size: 13.5px;
+    span { white-space: nowrap; }
+  }
 }
 
 .stat-note {
