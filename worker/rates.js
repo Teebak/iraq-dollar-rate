@@ -50,13 +50,17 @@ const isPlausible = n => Number.isFinite(n) && n >= 500 && n <= 5000;
 
 export const fmt = n => Number(n).toLocaleString('en-US', { maximumFractionDigits: 2 });
 
-/** One line per city. With `yesterday` (sell per market ~24 h ago), the sell price gets its change, e.g. (▲ 2.5). */
-export function cityLines(rates, yesterday = {}) {
+/**
+ * One line per city. With `yesterday` (sell per market ~24 h ago), the sell price gets its change, e.g. (▲ 2.5).
+ * `unit` 100 shows prices (and the change) per $100 instead of per $1.
+ */
+export function cityLines(rates, yesterday = {}, unit = 1) {
+  const n = v => fmt(Math.round(v * unit * 100) / 100);
   return CITIES.filter(([key]) => rates[key]).map(([key, name]) => {
     const { sell, buy } = rates[key];
     const before = yesterday[key];
-    const delta = before == null ? '' : sell > before ? ` (▲ ${fmt(sell - before)})` : sell < before ? ` (▼ ${fmt(before - sell)})` : ' (ثابت)';
-    return `📍 ${name}: بيع ${fmt(sell)}${delta} · شراء ${fmt(buy)}`;
+    const delta = before == null ? '' : sell > before ? ` (▲ ${n(sell - before)})` : sell < before ? ` (▼ ${n(before - sell)})` : ' (ثابت)';
+    return `📍 ${name}: بيع ${n(sell)}${delta} · شراء ${n(buy)}`;
   });
 }
 

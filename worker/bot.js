@@ -206,7 +206,7 @@ export async function sendDailySummary(env) {
   const { rates, staleSince } = await storedRates(env);
   const yesterday = staleSince ? {} : await yesterdaySell(env);
   const text = [
-    '🗓 ملخص اليوم — ' + todayInBaghdad(), '', ...cityLines(rates, yesterday), '', 'الأسعار بالدينار لكل 1 دولار.',
+    '🗓 ملخص اليوم — ' + todayInBaghdad(), '', ...cityLines(rates, yesterday, 100), '', 'الأسعار بالدينار لكل 100 دولار.',
     ...(staleSince ? ['', staleNote(staleSince)] : []),
   ].join('\n');
   await postToChannel(env, text);
