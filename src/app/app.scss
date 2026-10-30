@@ -167,7 +167,7 @@ h1, h2, h3, p {
   overscroll-behavior-x: contain;
   scroll-snap-type: x mandatory;
   scrollbar-width: none;
-  padding: 4px 16px 8px;
+  padding: 14px 16px 8px;
   scroll-padding-inline: 16px;
 
   &::-webkit-scrollbar { display: none; }
@@ -736,7 +736,7 @@ h1, h2, h3, p {
 
 .skeleton {
   display: flex;
-  padding: 4px 16px 8px;
+  padding: 14px 16px 8px;
 
   .ghost {
     flex: 1;
