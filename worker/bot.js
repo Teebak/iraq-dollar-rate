@@ -310,7 +310,7 @@ export async function checkAlerts(env, rates) {
   return fireAlerts(env, rates);
 }
 
-/** Official rate and 21K gold for the daily summary (IQWealth, credited). Empty if unavailable. */
+/** Official rate and 21K gold for the daily summary (from IQWealth; the owner chose not to credit it here). Empty if unavailable. */
 async function extrasLines(env, rates) {
   const [off, gold] = await Promise.all([officialRate(env), goldSummary(env)]);
   const k21 = gold?.karats.find(k => k.karat === 21);
@@ -319,7 +319,6 @@ async function extrasLines(env, rates) {
     '',
     ...(off ? [`🏦 السعر الرسمي: ${fmt(off.cbi * 100)} لكل 100$ (السوق أعلى بـ ${(((rates.b.sell - off.cbi) / off.cbi) * 100).toFixed(1)}%)`] : []),
     ...(k21 ? [`💛 ذهب عيار 21: ${fmt(k21.mithqal)} للمثقال`] : []),
-    'السعر الرسمي والذهب: IQWealth (iraqsm.com)',
   ];
 }
 
